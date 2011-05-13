@@ -78,7 +78,7 @@ public class CopyDirectory {
 								targetResource);
 						byte[] c = new byte[65536]; // with increasing value speed goes up 
 						int read = 0;
-						// Read (and print) till end of file
+						// Read (and print) till end of file.
 						while ((read = in.read(c)) != -1) {
 							out.write(c, 0, read);
 							System.out.print(".");
