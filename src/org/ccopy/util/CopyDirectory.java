@@ -72,6 +72,7 @@ public class CopyDirectory {
 					 */
 					if (!targetResource.isFile()) {
 						countResouce++;
+						// new
 						System.out.print(sourceResource + " - copy");
 						FileInputStream in = new FileInputStream(sourceResource);
 						FileOutputStream out = new FileOutputStream(
