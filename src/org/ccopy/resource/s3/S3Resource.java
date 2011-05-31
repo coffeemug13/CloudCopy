@@ -142,7 +142,7 @@ public class S3Resource extends AbstractResource implements Resource{
 				for (Entry<String, List<String>> entry : map.entrySet()) {
 					Iterator<String> val = entry.getValue().iterator();
 					while (val.hasNext()) {
-						switch (EnumS3Headers.fromString(entry.getKey())) {
+						switch (S3Headers.fromString(entry.getKey())) {
 						case CONTENT_LENGTH:
 							length = Integer.parseInt(val.next());
 							logger.fine("------Length of file: " + length);

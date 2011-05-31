@@ -7,7 +7,7 @@ package org.ccopy.resource;
  * @author mholakovsky
  *
  */
-public enum EnumResourceAttributes {
+public enum ResourceAttributes {
 	/**
 	 * Identifier for the Resource
 	 */

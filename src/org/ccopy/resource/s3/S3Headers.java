@@ -14,7 +14,7 @@ import java.net.Proxy;
     public static final String SERVER = "Server";
     
  */
-public enum EnumS3Headers {
+public enum S3Headers {
 	/*
      * Standard HTTP Headers
      */
@@ -38,13 +38,13 @@ public enum EnumS3Headers {
     
     String header;
     static public Proxy proxy = null;
-    EnumS3Headers(String method) {this.header=method;}
+    S3Headers(String method) {this.header=method;}
     public String toString() {return header;}
-	public static EnumS3Headers fromString(String key) {
+	public static S3Headers fromString(String key) {
 		try {
-			return EnumS3Headers.valueOf(key.toUpperCase().replace("-", "_"));
+			return S3Headers.valueOf(key.toUpperCase().replace("-", "_"));
 		} catch (Exception e) {
-			return EnumS3Headers.UNKNOWN;
+			return S3Headers.UNKNOWN;
 		}
 	}
 }
