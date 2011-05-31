@@ -8,11 +8,14 @@
 package org.ccopy;
 
 import java.io.File;
+import java.net.URL;
 import java.util.Date;
 
 import javax.sound.midi.SysexMessage;
 
-import org.ccopy.util.CopyDirectory;
+import org.ccopy.resource.CopyDirectory;
+import org.ccopy.resource.FileResource;
+import org.ccopy.resource.Resource;
 
 /**
  * This is the main programm for cloudcopy
@@ -35,8 +38,8 @@ public class CCopy {
 		/**
 		 * Local Variables
 		 */
-		File sourceUrl = null;
-		File targetUrl = null;
+		Resource sourceUrl = null;
+		Resource targetUrl = null;
 		/**
 		 * CMD handling - process the cmd line arguments and assign the proper
 		 * variables
@@ -55,7 +58,7 @@ public class CCopy {
 					argsPosition++;
 					break;
 				case 1: // source URL
-					sourceUrl = new File(s);
+					sourceUrl = new FileResource(new URL(s));
 					argsPosition++;
 					break;
 				case 2: // target URL
