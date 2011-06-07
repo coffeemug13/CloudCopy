@@ -1,7 +1,7 @@
 /**
  *
  */
-package org.ccopy.resource;
+package org.ccopy.resource.file;
 
 import java.io.File; 
 import java.io.FileInputStream;

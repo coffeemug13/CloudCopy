@@ -32,19 +32,27 @@ public enum S3Headers {
      * Amazon S3 HTTP Headers
      */
 	AMAZON_PREFIX ("x-amz-"),
-	REQUEST_ID ("x-amz-request-id"),
+	X_REQUEST_ID ("x-amz-request-id"),
+	X_VERSION_ID ("x-amz-version-id"),
 	UNKNOWN (""),
 	;
     
     String header;
     static public Proxy proxy = null;
-    S3Headers(String method) {this.header=method;}
+    
+    private S3Headers(String method) {
+    	this.header=method;
+    }
     public String toString() {return header;}
+    /**
+     * Return korrekt S3Headers konverted from String
+     * @param key
+     * @return the korrekt S3Header
+     */
 	public static S3Headers fromString(String key) {
-		try {
-			return S3Headers.valueOf(key.toUpperCase().replace("-", "_"));
-		} catch (Exception e) {
-			return S3Headers.UNKNOWN;
+		for (S3Headers v : S3Headers.values()) {
+			if (v.toString().equals(key)) return v;
 		}
+		return S3Headers.UNKNOWN;
 	}
 }

@@ -7,7 +7,6 @@ import static org.junit.Assert.*;
 
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.SocketAddress;
 import java.net.URL;
@@ -16,16 +15,15 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ccopy.resource.DateFormatter;
+import org.ccopy.TestSetup;
+import org.ccopy.resource.util.DateFormatter;
 import org.ccopy.resource.ResourceAuthenticator;
-import org.ccopy.resource.ResourceException;
 import org.ccopy.util.HttpMethod;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.omg.PortableInterceptor.SUCCESSFUL;
 
 /**
  * @author mholakovsky
@@ -39,13 +37,7 @@ public class TestS3Resource {
 	 */
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		// set the default Authentication
-		Authenticator.setDefault(new ResourceAuthenticator(
-				"AKIAIGZKXWFKU74XTWAA",
-				"q5If10+UBO8Gu4jlD5Lno038Y9TXF06fj98CWn8L")); 
-		// set the global proxy
-		SocketAddress addr = new InetSocketAddress("proxy.sozvers.at", 8080);
-		HttpMethod.proxy = new Proxy(Type.HTTP, addr);
+		TestSetup.initialSetup();
 		// set the Log Format and Level
 		ConsoleHandler ch = new ConsoleHandler();
 		ch.setLevel(Level.FINEST);
@@ -114,8 +106,8 @@ public class TestS3Resource {
 		try {
 			S3Resource s3 = new S3Resource(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"));
 			s3.getStatus();
-			assertTrue(s3.exists);
-			assertTrue(s3.length == 49);
+			assertTrue(s3.exists());
+			assertTrue(s3.getLength() == 49);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

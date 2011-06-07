@@ -1,4 +1,4 @@
-package org.ccopy.resource;
+package org.ccopy.resource.util;
 
 
 /**

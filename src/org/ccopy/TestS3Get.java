@@ -23,7 +23,7 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ccopy.resource.DateFormatter;
+import org.ccopy.resource.util.DateFormatter;
 import org.ccopy.resource.ResourceAuthenticator;
 import org.ccopy.resource.s3.S3;
 import org.ccopy.s3.S3Request;

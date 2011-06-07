@@ -1,11 +1,9 @@
 /**
  * 
  */
-package org.ccopy.resource;
+package org.ccopy.resource.util;
 
-import java.util.Date;
 import java.util.logging.Formatter;
-import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
 /**

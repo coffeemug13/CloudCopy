@@ -9,18 +9,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Map.Entry;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ccopy.resource.DateFormatter;
+import org.ccopy.TestSetup;
+import org.ccopy.resource.util.DateFormatter;
 import org.ccopy.resource.ResourceAuthenticator;
 import org.ccopy.util.HttpMethod;
 import org.junit.After;
@@ -41,10 +36,7 @@ public class TestS3Request {
 	 */
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
-		// set the default Authentication
-		Authenticator.setDefault(new ResourceAuthenticator(
-				"AKIAIGZKXWFKU74XTWAA",
-				"q5If10+UBO8Gu4jlD5Lno038Y9TXF06fj98CWn8L"));
+		TestSetup.initialSetup();
 		// set the Log Format and Level
 		ConsoleHandler ch = new ConsoleHandler();
 		ch.setLevel(Level.FINEST);
@@ -131,5 +123,23 @@ public class TestS3Request {
 		req.addRequestHeader("X-Amz-Meta-ReviewedBy", "bob@s3.com");
 		//System.out.println(req.getcanonicalizedAmzHeaders());
 		assertEquals(req.getcanonicalizedAmzHeaders(), "x-amz-meta-checksumalgorithm:crc32\nx-amz-meta-reviewedby:bob@s3.com,alice@s3.com\nx-amz-meta-username:value1\n");
+	}
+	/**
+	 * Test method for {@link org.ccopy.S3.S3Request#sign()}.
+	 */
+	@Test
+	public void testSign() {
+		S3Request req = new S3Request(null);
+		try {
+			String sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "GET\n\n\nTue, 27 Mar 2007 19:36:42 +0000\n/johnsmith/photos/puppy.jpg");
+			assertEquals(sign, "xXjDGYUmKxnwqr5KXNPGldn5LbA=");
+			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n\nimage/jpeg\nTue, 27 Mar 2007 21:15:45 +0000\n/johnsmith/photos/puppy.jpg");
+			assertEquals(sign, "hcicpDDvL9SsO6AkvxqmIWkmOuQ=");
+			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n4gJE4saaMU4BqNR0kLY+lw==\napplication/x-download\nTue, 27 Mar 2007 21:06:08 +0000\nx-amz-acl:public-read\nx-amz-meta-checksumalgorithm:crc32\nx-amz-meta-filechecksum:0x02661779\nx-amz-meta-reviewedby:joe@johnsmith.net,jane@johnsmith.net\n/static.johnsmith.net/db-backup.dat.gz");
+			assertEquals(sign, "C0FlOtU8Ylb9KDTpZqYkZPX91iI=");
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} 
 	}
 }

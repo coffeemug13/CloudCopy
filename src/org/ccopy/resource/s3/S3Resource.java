@@ -32,12 +32,13 @@ import org.ccopy.util.HttpMethod;
  *
  */
 public class S3Resource extends AbstractResource implements Resource{
+	
 	/**
 	 * The File object representing the asset
 	 */
-	protected S3 req = null;
-	protected InputStream inStream;
-	protected OutputStream outStream;
+//	protected S3 req = null;
+//	protected InputStream inStream;
+//	protected OutputStream outStream;
 	/**
 	 * The region of the S3 bucket for this resource
 	 */
@@ -46,17 +47,6 @@ public class S3Resource extends AbstractResource implements Resource{
 	 * The name of the bucket
 	 */
 	protected String bucketName = null;
-	/**
-	 * indicates that the status of the S3 resource is known
-	 */
-	protected boolean gotStatus = false;
-	protected boolean isDirectory;
-	protected Boolean exists = null;
-	protected boolean canRead;
-	protected boolean canWrite;
-	protected int length;
-	private static Logger logger = Logger.getLogger("org.ccopy");
-
 
 	/**
 	 * Construct an asset base on a URL object, e.g. 
@@ -122,42 +112,36 @@ public class S3Resource extends AbstractResource implements Resource{
    Accept-Ranges: bytes 
    Content-Type: text/plain 
    Server: AmazonS3 
+	 * @throws ResourceException 
+	 * @throws IOException 
+	 * @throws InvalidKeyException 
 	 */
-	protected void getStatus(){
-		String log = "";
-		// TODO Make a head request for the object
+	protected void getStatus() throws SecurityException, IOException, ResourceException{
 		S3Request req = new S3Request(url);
 		req.setHttpMethod(HttpMethod.HEAD);
 		HttpURLConnection con = null;
 		try {
-			con = req.getConnection();
-	//		// now fetch the info from the resource
-			Map<String, List<String>> map = con.getHeaderFields();
-			if (con.getResponseCode()==con.HTTP_OK) {
+			try {
+				con = req.getConnection();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+//			con.setDoInput(true);
+//			Map<String, List<String>> map = con.getHeaderFields();
+			if (con.getResponseCode()==HttpURLConnection.HTTP_OK) {
 				/**
 				 * Set the quick attributes
 				 */
 				exists = true;
 				isDirectory = url.getPath().toString().endsWith("/");
-				for (Entry<String, List<String>> entry : map.entrySet()) {
-					Iterator<String> val = entry.getValue().iterator();
-					while (val.hasNext()) {
-						switch (S3Headers.fromString(entry.getKey())) {
-						case CONTENT_LENGTH:
-							length = Integer.parseInt(val.next());
-							logger.fine("------Length of file: " + length);
-							break;
-						case UNKNOWN:
-						default:
-							logger.fine(entry.getKey() + ": " + val.next());
-							break;
-						}
-					}
-				}
+				canRead = true;
+				con.getContentLength();
+				//md5Hash = con.getHeaderField(S3Headers.CONTENT_MD5.toString()).substring(1,33); // trim the '"' from start and end of string. ETag is always 32Bytes long
+				lastModified = con.getLastModified();
+			} else  {
+				// something went wrong. unclear what to handle and what to throw
 			}
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		} finally {
 			if (con!=null) con.disconnect();
 		}
@@ -167,10 +151,11 @@ public class S3Resource extends AbstractResource implements Resource{
 	 *
 	 * @see org.astor.asset.Asset#canRead()
 	 */
-	public boolean canRead() {
-		return true;
+	public boolean canRead() throws IOException, SecurityException, ResourceException {
+		if (exists == null) getStatus();
+		return canRead;
 	}
-	public boolean canWrite() {
+	public boolean canWrite() throws SecurityException, IOException, ResourceException {
 		if (exists == null) getStatus();
 		return canWrite;
 	}
@@ -182,7 +167,7 @@ public class S3Resource extends AbstractResource implements Resource{
 		return true;
 	}
 	
-	public boolean exists() {
+	public boolean exists() throws SecurityException, IOException, ResourceException {
 		if (exists == null) getStatus();
 		return exists;
 	}
@@ -204,18 +189,23 @@ public class S3Resource extends AbstractResource implements Resource{
 
 	/**
 	 * Return true only if the object key ends with a "/" and exists.
+	 * @throws ResourceException 
+	 * @throws IOException 
+	 * @throws SecurityException 
 	 */
-	public boolean isDirectory() {
+	public boolean isDirectory() throws SecurityException, IOException, ResourceException {
 		if (exists == null) getStatus();
 		return isDirectory;
 	}
 
-	public long lastModified() {
+	public long lastModified() throws SecurityException, IOException, ResourceException {
+		if (exists == null) getStatus();
 //		return new Daattributes.get(EnumResourceAttributes.LAST_MODIFIED);;
 		return 0;
 	}
 
-	public long length() {
+	public long length() throws SecurityException, IOException, ResourceException {
+		if (exists == null) getStatus();
 		return 0;
 	}
 
@@ -240,8 +230,11 @@ public class S3Resource extends AbstractResource implements Resource{
      * <p> There is no guarantee that the name strings in the resulting array
      * will appear in any specific order; they are not, in particular,
      * guaranteed to appear in alphabetical order.
+	 * @throws ResourceException 
+	 * @throws IOException 
+	 * @throws SecurityException 
 	 */
-	public Resource[] listResources() {
+	public Resource[] listResources() throws SecurityException, IOException, ResourceException {
 		if (!this.isDirectory()) return null;
 		//TODO fetch the sub resources for this S3 resource by creating correct Request URL
 		Resource[] assetList = new Resource[0]; // allocate a array to fit all found resources
@@ -269,8 +262,8 @@ public class S3Resource extends AbstractResource implements Resource{
 		return false;
 	}
 	@Override
-	public boolean isFile() {
-		// TODO Auto-generated method stub
-		return false;
+	public boolean isFile() throws SecurityException, IOException, ResourceException {
+		if (exists == null) getStatus();
+		return !isDirectory;
 	}
 }
