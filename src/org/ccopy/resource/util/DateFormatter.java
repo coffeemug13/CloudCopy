@@ -3,6 +3,10 @@
  */
 package org.ccopy.resource.util;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
@@ -19,13 +23,15 @@ public class DateFormatter extends Formatter {
 	public String format(LogRecord record) {
 
 		// Zeichenfolgepuffer für formatierten Datensatz erstellen.
-		// Mit Datum anfangen.
 		StringBuffer sb = new StringBuffer();
-
+		
+		// Mit Datum anfangen.
 		// Datum aus dem Protokollsatz abrufen und dem Puffer hinzufügen
-		// Date date = new Date(record.getMillis());
-		// sb.append(date.toString());
-		// sb.append(" ");
+//		 Date date = new Date(record.getMillis());
+		 SimpleDateFormat df = new SimpleDateFormat(
+					"HH:mm:ss", Locale.ENGLISH);
+		 sb.append(df.format(new Date(record.getMillis())));
+		 sb.append(" ");
 
 		// Versionsnamen abrufen und dem Puffer hinzufügen
 //		if (record.getLevel() != Level.FINE) {

@@ -10,13 +10,16 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.resource.ResourceException;
+import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 
 /**
@@ -55,8 +58,7 @@ public class S3Object {
 	 * @param versionId
 	 * @return
 	 */
-	static public S3Object getObject(URL url, String versionId)
-			throws IOException, Exception {
+	static public S3Object getObject(URL url, String versionId) throws IOException, S3Exception {
 		S3Request req = new S3Request(url);
 		req.setHttpMethod(HttpMethod.GET);
 		HttpURLConnection con = null;
@@ -64,20 +66,23 @@ public class S3Object {
 			con = req.getConnection();
 			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
 				S3Object obj = new S3Object(url);
-				/**
-				 * Set the attributes of the object
-				 */
+				// Set the attributes of the object
 				obj.responseHeader = con.getHeaderFields();
 				obj.lastModified = con.getLastModified();
-				if (con.getResponseCode() < 400) {
-					obj.inResponse = con.getInputStream();
-				} else {
-					obj.inError = con.getErrorStream();
+				obj.inResponse = con.getInputStream();
+				if (logger.isLoggable(Level.FINEST)) {
+					StringBuffer buf = new StringBuffer();
+					buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+					logger.finest(buf.toString());
+				}
+				if (logger.isLoggable(Level.FINE)) {
+					logger.fine("Successfully read metadata and opened InputStream for S3 object to '" + url.toString() + "'");
 				}
 				return obj;
 			} else {
-				throw new IOException(con.getResponseCode() + ": "
-						+ con.getResponseMessage());
+				String err = StringUtil.streamToString(con.getErrorStream());
+				logger.fine("S3 responded with error message...\n" + err + "\n----------");
+				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
 			}
 		} finally {
 			// if (con!=null) con.disconnect();
@@ -97,14 +102,9 @@ public class S3Object {
 				int read = 0;
 				// Read (and print) till end of file.
 				in = con.getInputStream();
-				if (null != con) {
-					StringBuffer buf = new StringBuffer();
-					buf.append("### response message: ###\n");
-					while ((read = in.read(c)) != -1) {
-						buf.append(new String(c, 0, read));
-					}
-					System.err.println(buf.toString() + "\n----------");
-				}
+				if (null != con)
+					System.err.println("### response message: ###\n" + StringUtil.streamToString(in)
+							+ "\n----------");
 			}
 		} catch (Exception e) {
 
@@ -125,32 +125,47 @@ public class S3Object {
 	 *             , Exception
 	 * @throws ResourceException
 	 */
-	static public S3Object getHeadObject(URL url, String versionId)
-			throws IOException, Exception {
+	static public S3Object getHeadObject(URL url, String versionId) throws IOException, S3Exception {
 		// TODO add the "?acl" to the request!!!!
+		/**
+		 * Prepare the request
+		 */
 		S3Request req = new S3Request(url);
-		req.setHttpMethod(HttpMethod.GET);
+		req.setHttpMethod(HttpMethod.HEAD);
+		// init some vars, so you can grab them in exception or finally clause
 		HttpURLConnection con = null;
 		InputStream in = null;
+		/**
+		 * Process the request
+		 */
 		try {
 			con = req.getConnection();
 			in = con.getInputStream();
 			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
 				S3Object obj = new S3Object(url);
-				/**
-				 * Set the attributes of the object
-				 */
+				// Set the attributes of the object
 				obj.responseHeader = con.getHeaderFields();
 				obj.lastModified = con.getLastModified();
+				// log some infos
+				if (logger.isLoggable(Level.FINEST)) {
+					StringBuffer buf = new StringBuffer();
+					buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+					logger.finest(buf.toString());
+				}
+				if (logger.isLoggable(Level.FINE)) {
+					logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
+				}
 				return obj;
 			} else {
-				throw new IOException(con.getResponseCode() + ": "
-						+ con.getResponseMessage());
-			}
+				String err = StringUtil.streamToString(con.getErrorStream());
+				logger.fine("S3 responded with error message...\n" + err + "\n----------");
+				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
+			}	
 		} finally {
-			if (con != null)
-				con.disconnect();
+			if (in != null)
+				in.close();
 		}
+
 	}
 
 	/**
@@ -159,13 +174,17 @@ public class S3Object {
 	 * never adds partial objects; if you receive a success response, Amazon S3
 	 * added the entire object to the bucket.
 	 * 
-	 * @param url
-	 * @param metadata
-	 * @param in
-	 * @return
+	 * @param the
+	 *            URL for the S3 object
+	 * @param additional
+	 *            metadata for the S3 object
+	 * @param the
+	 *            InputStream to be written to S3
+	 * @return null or the VersionId of the S3 Object
+	 * @throws S3Exception
 	 */
-	static public String putObject(URL url, HashMap<String, String> metadata,
-			int contentLength, InputStream in) throws IOException, Exception {
+	static public String putObject(URL url, Map<String, String> meta2, String contentType, int contentLength,
+			InputStream in) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */
@@ -177,62 +196,55 @@ public class S3Object {
 		// content type is mandatory for this request!
 		req.setContentType("text/plain");
 		// now set some header attributes if available
-		if (null != metadata) {
-			for (Entry<String, String> entry : metadata.entrySet()) {
+		if (null != meta2) {
+			for (Entry<String, String> entry : meta2.entrySet()) {
 				req.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
 		/**
-		 * Now process the request
+		 * Process the request
 		 */
 		HttpURLConnection con = null;
 		OutputStream out = null;
 		try {
+			// open the http connection
 			con = req.getConnection();
+			// open the OutputStream
 			out = con.getOutputStream();
+			// read the InputStream in chunks and write them to S3 OutputStream
 			byte[] c = new byte[100]; // with increasing value speed goes up
-			int read = 0;
-			int readCounter = 0;
+			int read, lastRead = 0;
+			int readCounter = 0; // count the Bytes which are processed
 			// Read (and print) till end of file.
 			while ((read = in.read(c)) != -1) {
 				out.write(c, 0, read);
 				readCounter += read;
+				if (read != -1) lastRead = read;
 			}
+			// check that expected file length has been written
 			if (readCounter != contentLength)
-				throw new S3Exception("Proposed content length '"
-						+ contentLength + "' doesn't correspond to '"
-						+ readCounter + "' Byte read from the InputStream!");
+				throw new S3Exception("Proposed content length '" + contentLength
+						+ "' doesn't correspond to '" + readCounter + "' Byte read from the InputStream!");
 			// log the last written line to the logger
-			if (logger.isLoggable(Level.FINER))
-				logger.finer(readCounter
-						+ " Bytes processed. Last line was ..." + new String(c));
-			// extract from the response header ETag and versionid
-			String versionId = null;
-			if (con.getResponseCode() != HttpURLConnection.HTTP_OK) {
-				read = 0;
-				// Read (and print) till end of file.
-				in = con.getErrorStream();
-				if (null != con) {
-					StringBuffer buf = new StringBuffer();
-					buf.append("### Error response message: ###\n");
-					while ((read = in.read(c)) != -1) {
-						buf.append(new String(c, 0, read));
-					}
-					logger.fine(buf.toString() + "\n----------");
-				}
-			} else {
-				versionId = con.getHeaderField(S3Headers.X_VERSION_ID
-						.toString());
-				String eTag = con.getHeaderField(S3Headers.ETAG.toString());
+			if (logger.isLoggable(Level.FINEST)) {
+				StringBuffer buf = new StringBuffer();
+				buf.append("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
+				buf.append(readCounter + " Bytes processed. Last line was <" + new String(c,0,lastRead) + ">");
+				logger.finest(buf.toString());
 			}
-			// now close the connections
-			in.close();
-			out.close();
-			// finish
-			return versionId;
-		} catch (Exception e) {
-			throw new Exception(con.getResponseCode() + ": "
-					+ con.getResponseMessage());
+			// extract from the response header ETag and versionid when the
+			// response was OK
+			String versionId = null;
+			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
+				versionId = con.getHeaderField(S3Headers.X_VERSION_ID.toString());
+				String eTag = con.getHeaderField(S3Headers.ETAG.toString());
+				logger.fine("Successfully written '" + readCounter + "' Bytes to '" + url.toString() + "'");
+				return versionId;
+			} else {
+				String err = StringUtil.streamToString(con.getErrorStream());
+				logger.fine("S3 responded with error message...\n" + err + "\n----------");
+				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
+			}
 		} finally {
 			// be sure to always close the Input/Outputstreams
 			if (null != in)
@@ -291,8 +303,9 @@ public class S3Object {
 	 */
 	public int getContentLength() {
 		if (null != responseHeader) {
-			return Integer.parseInt(responseHeader.get(
-					S3Headers.CONTENT_LENGTH.toString()).get(0));
+			String s = responseHeader.get(S3Headers.CONTENT_LENGTH.toString()).get(0);
+			int r = Integer.parseInt(s);
+			return r;
 		} else
 			return -1;
 	}
@@ -316,8 +329,7 @@ public class S3Object {
 	 */
 	public String getContentEncoding() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.CONTENT_ENCODING.toString())
-					.get(0);
+			return responseHeader.get(S3Headers.CONTENT_ENCODING.toString()).get(0);
 		} else
 			return String.valueOf("utf-8");
 	}
@@ -359,8 +371,7 @@ public class S3Object {
 		if (null != responseHeader) {
 			// trim the '"' from start and end of string. ETag is always 32Bytes
 			// long
-			return responseHeader.get(S3Headers.ETAG.toString()).get(0)
-					.substring(1, 33);
+			return responseHeader.get(S3Headers.ETAG.toString()).get(0).substring(1, 33);
 		} else
 			return null;
 	}

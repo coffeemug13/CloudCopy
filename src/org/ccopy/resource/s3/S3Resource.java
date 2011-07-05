@@ -32,13 +32,6 @@ import org.ccopy.util.HttpMethod;
  *
  */
 public class S3Resource extends AbstractResource implements Resource{
-	
-	/**
-	 * The File object representing the asset
-	 */
-//	protected S3 req = null;
-//	protected InputStream inStream;
-//	protected OutputStream outStream;
 	/**
 	 * The region of the S3 bucket for this resource
 	 */

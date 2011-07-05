@@ -37,6 +37,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.ccopy.resource.util.Base64;
+import org.ccopy.resource.util.StringUtil;
 import org.ccopy.resource.ResourceException;
 import org.ccopy.util.HttpMethod;
 
@@ -48,6 +49,9 @@ public class S3Request {
 	private static Logger logger = Logger.getLogger("org.ccopy");
 	protected Proxy proxy = null;
 	protected URL url;
+	/**
+	 * the default HTTP Method is GET
+	 */
 	private HttpMethod httpVerb = HttpMethod.GET;
 	protected String contentMD5 = "";
 	protected String contentType = "";
@@ -111,9 +115,11 @@ public class S3Request {
 //		headers.add(key + ": " + value);
 		// collect amz headers
 		if (key.toLowerCase().startsWith("x-amz-")) {
+			if (!key.toLowerCase().equals(S3Headers.X_AMZ_META.toString())) {
 			String oldKey = amzHeaders.put(key.toLowerCase(), value);
 			if (oldKey != null)
 				amzHeaders.put(key.toLowerCase(), value + "," + oldKey);
+			} else System.err.println("skipping to add user metadata to S3 Request Header because missing unique key after 'x-amz-meta-'");
 		} else amzHeaders.put(key, value);
 
 	}
@@ -130,9 +136,9 @@ public class S3Request {
 	 * Get the connection for the specified S3 request
 	 * 
 	 * @return
-	 * @throws Exception 
+	 * @throws IOException 
 	 */
-	protected HttpURLConnection getConnection() throws Exception {
+	protected HttpURLConnection getConnection() throws IOException {
 		if (HttpMethod.proxy != null) {
 			con = (HttpURLConnection) url.openConnection(HttpMethod.proxy);
 		} else {
@@ -149,7 +155,7 @@ public class S3Request {
 		// set the correct date for the request and add to request header
 		String date = df.format(new Date());
 		con.addRequestProperty("Date", date);
-		if (null!= contentType) con.addRequestProperty("Content-Type", contentType);
+		if ("" != contentType) con.setRequestProperty("Content-Type", contentType);
 		// add the manually set header attributes
 		for (Entry<String, String> entry : amzHeaders.entrySet()) {
 			con.setRequestProperty(entry.getKey(), entry.getValue());
@@ -164,60 +170,26 @@ public class S3Request {
 		String stringToSign = httpVerb + "\n" + contentMD5 + "\n" + contentType
 				+ "\n" + date + "\n" + getcanonicalizedAmzHeaders()
 				+ canonicalizedResource;
-		//logger.fine("this is the string to sign:\n" + stringToSign);
 		// sign this string and add it as Authorization header
 		PasswordAuthentication pwd = Authenticator
 				.requestPasswordAuthentication(null, 0, "", "", "");
 		String sign = sign(new String(pwd.getPassword()), stringToSign);
 		String authorization = "AWS " + pwd.getUserName() + ":" + sign;
-		logger.fine("using following S3 Authorization string: " + authorization);
 		con.addRequestProperty("Authorization", authorization);
 
 		/**
 		 * Print the request and response headers for logging
 		 */
-//		if (logger.isLoggable(Level.FINER)) {
-//			Map<String, List<String>> map = null;
-//			String log = "Request Headers...\n";
-//			
-//			map = con.getRequestProperties();
-//			Set<Entry<String, List<String>>> mapSet = map.entrySet();
-//			Iterator<Entry<String, List<String>>> mapIterator = mapSet
-//					.iterator();
-//			while (mapIterator.hasNext()) {
-//				Map.Entry<String, List<String>> e = (Map.Entry<String, List<String>>) mapIterator
-//						.next();
-//				if (e.getKey() != null) {
-//					log += "   " + e.getKey() + ": ";
-//				}
-//				Iterator<String> val = e.getValue().iterator();
-//				while (val.hasNext()) {
-//					log += val.next() + " ";
-//				}
-//				log += "\n";
-//			}
-//			logger.finer(log);
-//			log = "Response Headers...\n";
-//			map = con.getHeaderFields();
-//			log += "Host: " + con.getURL().getHost() +"\n";
-//			mapSet = map.entrySet();
-//			mapIterator = mapSet.iterator();
-//			while (mapIterator.hasNext()) {
-//				Map.Entry<String, List<String>> e = (Map.Entry<String, List<String>>) mapIterator
-//						.next();
-//				if (e.getKey() != null) {
-//					log += "   " + e.getKey() + ": ";
-//				} else
-//					log += "   ";
-//				Iterator<String> val = e.getValue().iterator();
-//				while (val.hasNext()) {
-//					log += val.next() + " ";
-//				}
-//				log += "\n";
-//			}
-//			logger.finer(log);
-//		} else
-//			con.connect();
+		if (logger.isLoggable(Level.FINEST)) {
+			StringBuffer buf = new StringBuffer();
+			buf.append("S3 request for '" + url + "'\n");
+			buf.append("request headers...\n");
+			buf.append("* " + con.getRequestMethod() + "\n");
+			buf.append("* Authorization: " + authorization + "\n");
+			buf.append(StringUtil.mapToString(con.getRequestProperties()));
+			logger.finest(buf.toString());
+		}
+		
 		// return the connection
 		return con;
 	}
@@ -236,12 +208,9 @@ public class S3Request {
 	 * @param yourSecretAccessKeyID
 	 * @param stringToSign
 	 * @return
-	 * @throws InvalidKeyException
-	 * @throws ResourceException
 	 * @throws GeneralSecurityException
 	 */
-	protected String sign(String yourSecretAccessKeyID, String stringToSign)
-			throws Exception {
+	protected String sign(String yourSecretAccessKeyID, String stringToSign) {
 		String signature = null;
 		try {
 			Mac mac = Mac.getInstance("HmacSHA1");
@@ -250,7 +219,9 @@ public class S3Request {
 			signature = Base64.encodeBytes(mac.doFinal(stringToSign
 					.getBytes("UTF-8")));
 		} catch (Exception e) {
-			throw (Exception)e;
+			// this is a critical error when you can't sign a request, no recover possible
+			e.printStackTrace();
+			System.exit(1);
 		}
 		return signature;
 	}

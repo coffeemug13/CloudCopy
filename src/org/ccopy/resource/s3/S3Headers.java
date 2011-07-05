@@ -34,6 +34,10 @@ public enum S3Headers {
 	AMAZON_PREFIX ("x-amz-"),
 	X_REQUEST_ID ("x-amz-request-id"),
 	X_VERSION_ID ("x-amz-version-id"),
+	/**
+	 * Prefix for custom meta attributes
+	 */
+	X_AMZ_META ("x-amz-meta-"),
 	UNKNOWN (""),
 	;
     

@@ -13,12 +13,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.TestSetup;
 import org.ccopy.resource.util.DateFormatter;
+import org.ccopy.util.HttpMethod;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -67,6 +70,43 @@ public class TestS3Object {
 	@After
 	public void tearDown() throws Exception {
 	}
+	/**
+	 * Test method for {@link org.ccopy.resource.s3.S3Object#putObject(java.net.URL, java.util.HashMap, java.io.InputStream)}.
+	 */
+	@Test
+	public void testPutObject() {
+		File file = null;
+		try {
+			file = File.createTempFile("s3testfile", null);
+			FileWriter w = new FileWriter(file);
+			w.write("1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß");
+			w.close();
+		} catch (IOException e) {
+			fail("Error while writing the tempfile");
+		}
+		try {
+			Map<String,String> meta = new HashMap<String,String>();
+			meta.put(S3Headers.X_AMZ_META.toString()+"custom", "attribute");
+			String versionId = S3Object.putObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), meta, "text/plain", (int) file.length() ,new FileInputStream(file));
+		} catch (Exception e) {
+			fail(e.toString());
+		}
+	}
+	/**
+	 * Test method for {@link org.ccopy.resource.s3.S3Object#getHeadObject(java.net.URL, java.lang.String)}.
+	 */
+	@Test
+	public void testGetHeadObject() {
+		try {
+			S3Object obj = S3Object.getHeadObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), null);
+			assertTrue(obj.exists());
+			assertTrue(obj.canRead());
+			assertTrue("Content-Length",56 == obj.getContentLength());
+			assertEquals("d33dfa987962515b9efa63489bdcf8e0", obj.getETag());
+		} catch (Exception e) {
+			fail(e.toString());
+		}
+	}
 
 	/**
 	 * Test method for {@link org.ccopy.resource.s3.S3Object#getObject(java.net.URL, java.lang.String)}.
@@ -74,12 +114,14 @@ public class TestS3Object {
 	@Test
 	public void testGetObject() {
 		try {
+			// connect to the S3 object
 			S3Object obj = S3Object.getObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), null);
+			// now check the metadata
 			assertTrue(obj.exists());
 			assertTrue(obj.canRead());
-			assertTrue(49 == obj.getContentLength());
-			assertEquals("c278f05f3f5aeba3dc83fad531c11957", obj.getETag());
-			
+			assertTrue(56 == obj.getContentLength());
+			assertEquals("d33dfa987962515b9efa63489bdcf8e0", obj.getETag());
+			// then compare the content of the object
 			InputStream in = null;
 			StringBuffer buf = new StringBuffer(49);
 			byte[] c = new byte[100]; // with increasing value speed goes up
@@ -94,7 +136,7 @@ public class TestS3Object {
 				}
 				in.close();
 				logger.finer(buf.toString());
-				assertEquals("1234567890\nabcdefghijklmopqrstuvwxyz\n^�������~#", buf.toString());
+				assertEquals("1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß", buf.toString());
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -113,44 +155,6 @@ public class TestS3Object {
 			fail(e.toString());
 		}
 	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#getHeadObject(java.net.URL, java.lang.String)}.
-	 */
-	@Test
-	public void testGetHeadObject() {
-		try {
-			S3Object obj = S3Object.getHeadObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), null);
-			assertTrue(obj.exists());
-			assertTrue(obj.canRead());
-			assertTrue(49 == obj.getContentLength());
-			assertEquals("c278f05f3f5aeba3dc83fad531c11957", obj.getETag());
-		} catch (Exception e) {
-			fail(e.toString());
-		}
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#putObject(java.net.URL, java.util.HashMap, java.io.InputStream)}.
-	 */
-	@Test
-	public void testPutObject() {
-		File file = null;
-		try {
-			file = File.createTempFile("s3testfile", null);
-			FileWriter w = new FileWriter(file);
-			w.write("1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß");
-			w.close();
-		} catch (IOException e) {
-			fail("Error while writing the tempfile");
-		}
-		try {
-			String versionId = S3Object.putObject(new URL("https://mholakovsky.s3.amazonaws.com/test2.txt"), null, (int) file.length(), new FileInputStream(file));
-		} catch (Exception e) {
-			fail(e.toString());
-		}
-	}
-
 	/**
 	 * Test method for {@link org.ccopy.resource.s3.S3Object#deleteObject(java.net.URL, java.lang.String)}.
 	 */
