@@ -11,6 +11,10 @@
  * 
  * S3 Bucket operations
  * GET list objects	bucket							prefix, delimiter, max-keys		List<S3Object>
+ * 
+ * 
+ * The classes are used in the following order
+ * <S3Resource> ====> <S3Object> =====> <S3Request>
  *
  * @since 0.1
  */

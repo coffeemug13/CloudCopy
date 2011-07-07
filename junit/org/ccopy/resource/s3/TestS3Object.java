@@ -13,6 +13,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.ConsoleHandler;
@@ -20,7 +23,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.TestSetup;
-import org.ccopy.resource.util.DateFormatter;
+import org.ccopy.resource.util.LoggingDateFormatter;
+import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -30,10 +34,36 @@ import org.junit.Test;
 
 /**
  * @author mholakovsky
- *
+ * 
  */
 public class TestS3Object {
+	private static final String TEST_URL = "https://mholakovsky.s3.amazonaws.com/test.txt";
+	/**
+	 * String with Umlaute for testing purpose
+	 */
+	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß";
+	private static String TEST_STRING_MD5;
+	private static int TEST_STRING_LENGTH;
+	/**
+	 * The logger
+	 */
 	private static Logger logger = Logger.getLogger("org.ccopy");
+	{
+		MessageDigest messageDigest;
+		try {
+			messageDigest = MessageDigest.getInstance("MD5");
+			messageDigest.reset();
+			messageDigest.update(TEST_STRING.getBytes(Charset.forName("UTF8")));
+			final byte[] resultByte = messageDigest.digest();
+			TEST_STRING_MD5 = new String(StringUtil.bytToHexString(resultByte));
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			System.exit(1);
+		}
+		TEST_STRING_LENGTH = TEST_STRING.getBytes().length;
+
+	}
 
 	/**
 	 * @throws java.lang.Exception
@@ -44,7 +74,7 @@ public class TestS3Object {
 		// set the Log Format and Level
 		ConsoleHandler ch = new ConsoleHandler();
 		ch.setLevel(Level.FINEST);
-		ch.setFormatter(new DateFormatter());
+		ch.setFormatter(new LoggingDateFormatter());
 		// add to logger
 		logger.addHandler(ch);
 		logger.setLevel(Level.FINEST);
@@ -70,8 +100,11 @@ public class TestS3Object {
 	@After
 	public void tearDown() throws Exception {
 	}
+
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#putObject(java.net.URL, java.util.HashMap, java.io.InputStream)}.
+	 * Test method for
+	 * {@link org.ccopy.resource.s3.S3Object#putObject(java.net.URL, java.util.HashMap, java.io.InputStream)}
+	 * .
 	 */
 	@Test
 	public void testPutObject() {
@@ -79,88 +112,102 @@ public class TestS3Object {
 		try {
 			file = File.createTempFile("s3testfile", null);
 			FileWriter w = new FileWriter(file);
-			w.write("1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß");
+			w.write(TEST_STRING);
 			w.close();
 		} catch (IOException e) {
 			fail("Error while writing the tempfile");
 		}
 		try {
-			Map<String,String> meta = new HashMap<String,String>();
-			meta.put(S3Headers.X_AMZ_META.toString()+"custom", "attribute");
-			String versionId = S3Object.putObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), meta, "text/plain", (int) file.length() ,new FileInputStream(file));
-		} catch (Exception e) {
-			fail(e.toString());
-		}
-	}
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#getHeadObject(java.net.URL, java.lang.String)}.
-	 */
-	@Test
-	public void testGetHeadObject() {
-		try {
-			S3Object obj = S3Object.getHeadObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), null);
-			assertTrue(obj.exists());
-			assertTrue(obj.canRead());
-			assertTrue("Content-Length",56 == obj.getContentLength());
-			assertEquals("d33dfa987962515b9efa63489bdcf8e0", obj.getETag());
+			Map<String, String> meta = new HashMap<String, String>();
+			meta.put(S3Headers.X_AMZ_META.toString() + "custom", "attribute");
+			String versionId = S3Object.putObject(new URL(TEST_URL),
+					meta, "text/plain", TEST_STRING_LENGTH, new FileInputStream(file));
 		} catch (Exception e) {
 			fail(e.toString());
 		}
 	}
 
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#getObject(java.net.URL, java.lang.String)}.
+	 * Test method for
+	 * {@link org.ccopy.resource.s3.S3Object#getHeadObject(java.net.URL, java.lang.String)}
+	 * .
+	 */
+	@Test
+	public void testGetHeadObject() {
+		try {
+			S3Object obj = S3Object.getHeadObject(new URL(TEST_URL),
+					null);
+			assertTrue(obj.exists());
+			assertTrue(obj.canRead());
+			assertTrue("Content-Length", TEST_STRING_LENGTH == obj.getContentLength());
+			assertEquals(TEST_STRING_MD5, obj.getETag());
+		} catch (Exception e) {
+			fail(e.toString());
+		}
+	}
+
+	/**
+	 * Test method for
+	 * {@link org.ccopy.resource.s3.S3Object#getHeadObject(java.net.URL, java.lang.String)}
+	 * .
+	 */
+	@Test
+	public void testGetHeadObject_Extended() {
+		// test a complete wrong URL
+		try{
+//			S3Object obj = S3Object.getHeadObject(new URL("http://www.heise.de/dd"),
+		S3Object obj = S3Object.getHeadObject(new URL(TEST_URL),
+				null);
+		} catch (FileNotFoundException e) {
+			// that error is correct, continue testing
+		} catch (Exception e) {
+			fail("Unexpected Exception occured: " + e.toString());
+		}
+		// test FileNotFound
+		try{
+		S3Object obj = S3Object.getHeadObject(new URL(TEST_URL),
+				null);
+		} catch (FileNotFoundException e) {
+			// that error is correct, continue testing
+		} catch (Exception e) {
+			fail("Unexpected Exception occured: " + e.toString());
+		}
+	}
+
+	/**
+	 * Test method for
+	 * {@link org.ccopy.resource.s3.S3Object#getObject(java.net.URL, java.lang.String)}
+	 * .
 	 */
 	@Test
 	public void testGetObject() {
 		try {
 			// connect to the S3 object
-			S3Object obj = S3Object.getObject(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"), null);
+			S3Object obj = S3Object.getObject(new URL(TEST_URL), null);
 			// now check the metadata
 			assertTrue(obj.exists());
 			assertTrue(obj.canRead());
-			assertTrue(56 == obj.getContentLength());
-			assertEquals("d33dfa987962515b9efa63489bdcf8e0", obj.getETag());
+			assertTrue(TEST_STRING_LENGTH == obj.getContentLength());
+			assertEquals(TEST_STRING_MD5, obj.getETag());
 			// then compare the content of the object
-			InputStream in = null;
-			StringBuffer buf = new StringBuffer(49);
-			byte[] c = new byte[100]; // with increasing value speed goes up
-			int read = 0;
-			try {
-				in = obj.getInputStream();
-				// Read (and print) till end of file.
-				while ((read = in.read(c)) != -1) {
-					// String result = new String(c);
-					//System.out.print(new String(c, 0, read));
-					buf.append(new String(c, 0, read));
-				}
-				in.close();
-				logger.finer(buf.toString());
-				assertEquals("1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß", buf.toString());
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				InputStream ein = obj.getErrorStream();
-				while ((read = ein.read(c)) != -1) {
-					// String result = new String(c);
-					System.out.write(c, 0, read);
-					// System.out.println("e----");
-				}
-			} finally {
-				if (in != null) {
-					in.close();
-				}
-			}
+			assertEquals(TEST_STRING, StringUtil.streamToString(obj.getInputStream()));
 		} catch (Exception e) {
 			fail(e.toString());
 		}
 	}
+
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Object#deleteObject(java.net.URL, java.lang.String)}.
+	 * Test method for
+	 * {@link org.ccopy.resource.s3.S3Object#deleteObject(java.net.URL, java.lang.String)}
+	 * .
 	 */
 	@Test
 	public void testDeleteObject() {
-		fail("Not yet implemented"); // TODO
+		try {
+			String versionId = S3Object.deleteObject(new URL(TEST_URL));
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("Unexpected Exception occured" + e.toString());
+		}		
 	}
-
 }

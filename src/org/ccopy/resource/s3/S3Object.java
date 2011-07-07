@@ -1,5 +1,5 @@
-/**
- * 
+/*
+ * Copyright (c) 2011, by Michael Holakovsky, Vienna.
  */
 package org.ccopy.resource.s3;
 
@@ -7,24 +7,21 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.URI;
 import java.net.URL;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ccopy.resource.ResourceException;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 
 /**
- * @author mholakovsky
+ * The S3Object provides methods to access and manipulate objects in S3 buckets.
  * 
+ * @author mholakovsky
  */
 public class S3Object {
 	private static Logger logger = Logger.getLogger("org.ccopy");
@@ -32,17 +29,11 @@ public class S3Object {
 	protected URL url;
 	protected HashMap<String, String> meta = null;
 	protected Map<String, List<String>> responseHeader = null;
-	private long lastModified = 0;
-	// protected String versionId;
-	// protected boolean exists;
-	// protected boolean isDirectory;
-	// protected boolean canRead;
-	// protected int contentLength;
-	// protected long lastModified;
-	// protected String eTag;
-	// protected String contentType;
-	private InputStream inResponse = null;
-	private InputStream inError = null;
+	/**
+	 * the InputStream of the object if it was requested
+	 */
+	protected HttpURLConnection con = null;
+	private InputStream inStream = null;
 
 	/**
 	 * Constructor for S3Object
@@ -52,64 +43,91 @@ public class S3Object {
 	}
 
 	/**
-	 * Get the Object from S3
+	 * Get the Object from S3.
 	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectGET.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
 	 * @param url
+	 *            the <code>URL</code> of the S3 object
 	 * @param versionId
-	 * @return
+	 *            the versionId or null
+	 * @return the requested S3 object
+	 * @throws S3Exception
+	 *             to handle S3 errors
+	 * @throws IOException
+	 *             in case of general connection problems
 	 */
 	static public S3Object getObject(URL url, String versionId) throws IOException, S3Exception {
+		/**
+		 * Prepare the request
+		 */
 		S3Request req = new S3Request(url);
+		// init some vars, so you can grab them in exception or finally clause
 		req.setHttpMethod(HttpMethod.GET);
 		HttpURLConnection con = null;
+		/**
+		 * Process the request
+		 */
 		try {
 			con = req.getConnection();
-			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
-				S3Object obj = new S3Object(url);
-				// Set the attributes of the object
-				obj.responseHeader = con.getHeaderFields();
-				obj.lastModified = con.getLastModified();
-				obj.inResponse = con.getInputStream();
-				if (logger.isLoggable(Level.FINEST)) {
-					StringBuffer buf = new StringBuffer();
-					buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
-					logger.finest(buf.toString());
-				}
-				if (logger.isLoggable(Level.FINE)) {
-					logger.fine("Successfully read metadata and opened InputStream for S3 object to '" + url.toString() + "'");
-				}
-				return obj;
-			} else {
-				String err = StringUtil.streamToString(con.getErrorStream());
-				logger.fine("S3 responded with error message...\n" + err + "\n----------");
-				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
+			S3Object obj = new S3Object(url);
+			// Set the attributes of the object
+			obj.responseHeader = con.getHeaderFields();
+			obj.con = con;
+			if (logger.isLoggable(Level.FINEST)) {
+				StringBuffer buf = new StringBuffer();
+				buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+				logger.finest(buf.toString());
 			}
+			if (logger.isLoggable(Level.FINE)) {
+				logger.fine("Successfully read metadata and opened InputStream for S3 object to '"
+						+ url.toString() + "'");
+			}
+			return obj;
 		} finally {
-			// if (con!=null) con.disconnect();
+			// DON'T close the 'con' in this case, because you loose connection
+			// to read the InputStream later
 		}
 	}
 
-	static public String getObjectAcl(URL url, String versionId) {
-		// TODO finanalize implementation
-		S3Request req = new S3Request(url);
-		req.setHttpMethod(HttpMethod.GET);
-		HttpURLConnection con = null;
-		InputStream in = null;
-		byte[] c = new byte[100]; // with increasing value speed goes up
-		try {
-			con = req.getConnection();
-			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
-				int read = 0;
-				// Read (and print) till end of file.
-				in = con.getInputStream();
-				if (null != con)
-					System.err.println("### response message: ###\n" + StringUtil.streamToString(in)
-							+ "\n----------");
-			}
-		} catch (Exception e) {
-
-		}
-		return versionId;
+	/**
+	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectGETacl.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
+	 * @param url
+	 * @param versionId
+	 * @return
+	 * @throws S3Exception
+	 *             to handle S3 errors
+	 * @throws IOException
+	 *             in case of general connection problems
+	 */
+	static public String getObjectAcl(URL url, String versionId) throws IOException, S3Exception {
+		// TODO finalize implementation
+		// S3Request req = new S3Request(url);
+		// req.setHttpMethod(HttpMethod.GET);
+		// HttpURLConnection con = null;
+		// InputStream in = null;
+		// byte[] c = new byte[100]; // with increasing value speed goes up
+		// try {
+		// con = req.getConnection();
+		// if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
+		// int read = 0;
+		// // Read (and print) till end of file.
+		// in = con.getInputStream();
+		// if (null != con)
+		// System.err.println("### response message: ###\n" +
+		// StringUtil.streamToString(in)
+		// + "\n----------");
+		// }
+		// } finally {
+		// if (in != null)
+		// in.close();
+		// }
+		// return versionId;
+		return null;
 	}
 
 	/**
@@ -118,15 +136,18 @@ public class S3Object {
 	 * an object's metadata. To use HEAD, you must have READ access to the
 	 * object.
 	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectHEAD.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
 	 * @param url
 	 * @param versionId
 	 * @return
+	 * @throws S3Exception
+	 *             to handle S3 errors
 	 * @throws IOException
-	 *             , Exception
-	 * @throws ResourceException
+	 *             in case of general connection problems
 	 */
 	static public S3Object getHeadObject(URL url, String versionId) throws IOException, S3Exception {
-		// TODO add the "?acl" to the request!!!!
 		/**
 		 * Prepare the request
 		 */
@@ -134,38 +155,24 @@ public class S3Object {
 		req.setHttpMethod(HttpMethod.HEAD);
 		// init some vars, so you can grab them in exception or finally clause
 		HttpURLConnection con = null;
-		InputStream in = null;
 		/**
 		 * Process the request
 		 */
-		try {
-			con = req.getConnection();
-			in = con.getInputStream();
-			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
-				S3Object obj = new S3Object(url);
-				// Set the attributes of the object
-				obj.responseHeader = con.getHeaderFields();
-				obj.lastModified = con.getLastModified();
-				// log some infos
-				if (logger.isLoggable(Level.FINEST)) {
-					StringBuffer buf = new StringBuffer();
-					buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
-					logger.finest(buf.toString());
-				}
-				if (logger.isLoggable(Level.FINE)) {
-					logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
-				}
-				return obj;
-			} else {
-				String err = StringUtil.streamToString(con.getErrorStream());
-				logger.fine("S3 responded with error message...\n" + err + "\n----------");
-				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
-			}	
-		} finally {
-			if (in != null)
-				in.close();
+		con = req.getConnection();
+		S3Object obj = new S3Object(url);
+		// Set the attributes of the object
+		obj.responseHeader = con.getHeaderFields();
+		// log some infos
+		if (logger.isLoggable(Level.FINEST)) {
+			StringBuffer buf = new StringBuffer();
+			buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+			logger.finest(buf.toString());
 		}
-
+		if (logger.isLoggable(Level.FINE)) {
+			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
+		}
+		// finish the method
+		return obj;
 	}
 
 	/**
@@ -174,6 +181,9 @@ public class S3Object {
 	 * never adds partial objects; if you receive a success response, Amazon S3
 	 * added the entire object to the bucket.
 	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectPUT.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
 	 * @param the
 	 *            URL for the S3 object
 	 * @param additional
@@ -182,6 +192,9 @@ public class S3Object {
 	 *            InputStream to be written to S3
 	 * @return null or the VersionId of the S3 Object
 	 * @throws S3Exception
+	 *             to handle S3 errors
+	 * @throws IOException
+	 *             in case of general connection problems
 	 */
 	static public String putObject(URL url, Map<String, String> meta2, String contentType, int contentLength,
 			InputStream in) throws IOException, S3Exception {
@@ -201,15 +214,15 @@ public class S3Object {
 				req.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
+		// init some vars, so you can grab them in exception or finally clause
+		HttpURLConnection con = null;
+		OutputStream out = null;
 		/**
 		 * Process the request
 		 */
-		HttpURLConnection con = null;
-		OutputStream out = null;
+
 		try {
-			// open the http connection
 			con = req.getConnection();
-			// open the OutputStream
 			out = con.getOutputStream();
 			// read the InputStream in chunks and write them to S3 OutputStream
 			byte[] c = new byte[100]; // with increasing value speed goes up
@@ -219,32 +232,33 @@ public class S3Object {
 			while ((read = in.read(c)) != -1) {
 				out.write(c, 0, read);
 				readCounter += read;
-				if (read != -1) lastRead = read;
+				if (read != -1)
+					lastRead = read;
 			}
-			// check that expected file length has been written
-			if (readCounter != contentLength)
-				throw new S3Exception("Proposed content length '" + contentLength
-						+ "' doesn't correspond to '" + readCounter + "' Byte read from the InputStream!");
+			// Workaround!!, because in case of a HTTP PUT you MUST check
+			// con.responseCode AFTER the upload otherwise you would implicit
+			// close the connection BEFORE you upload the content which ends in
+			// an HTTP error 400 - EntityTooSmall
+			int res;
+			if ((res = con.getResponseCode()) >= 300) {
+				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
+						StringUtil.streamToString(con.getErrorStream()));
+			}
+			// extract from the response header the versionId
+			String versionId = null;
+			versionId = con.getHeaderField(S3Headers.X_VERSION_ID.toString());
 			// log the last written line to the logger
 			if (logger.isLoggable(Level.FINEST)) {
 				StringBuffer buf = new StringBuffer();
 				buf.append("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
-				buf.append(readCounter + " Bytes processed. Last line was <" + new String(c,0,lastRead) + ">");
+				buf.append(readCounter + " Bytes processed. Last line was <" + new String(c, 0, lastRead)
+						+ ">");
 				logger.finest(buf.toString());
 			}
-			// extract from the response header ETag and versionid when the
-			// response was OK
-			String versionId = null;
-			if (con.getResponseCode() == HttpURLConnection.HTTP_OK) {
-				versionId = con.getHeaderField(S3Headers.X_VERSION_ID.toString());
-				String eTag = con.getHeaderField(S3Headers.ETAG.toString());
+			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully written '" + readCounter + "' Bytes to '" + url.toString() + "'");
-				return versionId;
-			} else {
-				String err = StringUtil.streamToString(con.getErrorStream());
-				logger.fine("S3 responded with error message...\n" + err + "\n----------");
-				throw new S3Exception(con.getResponseCode() + ":" + con.getResponseMessage() + "\n" + err);
-			}
+			// finish the method
+			return versionId;
 		} finally {
 			// be sure to always close the Input/Outputstreams
 			if (null != in)
@@ -255,17 +269,66 @@ public class S3Object {
 	}
 
 	/**
-	 * The DELETE operation removes the null version (if there is one) of an
-	 * object and inserts a delete marker, which becomes the latest version of
-	 * the object. If there isn't a null version, Amazon S3 does not remove any
-	 * objects.
+	 * This is a convinient method for {@code deleteObjectVersion(url,null)}.
 	 * 
+	 * @see org.ccopy.resource.s3.S3Object#deleteObjectVersion(URL, String)
 	 * @param url
-	 * @param versionID
-	 * @return S3Object with resulting versionId and/or delete marker
+	 *            the <code>URL</code> to the S3 object
+	 * @return the new versionId in case the bucket versioning is enabled;
+	 *         <code>null</code> otherwise.
+	 * @throws S3Exception
+	 *             to handle S3 errors
+	 * @throws IOException
+	 *             in case of general connection problems
 	 */
-	static public S3Object deleteObject(URL url, String versionID) {
-		return null;
+	static public String deleteObject(URL url) throws IOException, S3Exception {
+		return deleteObjectVersion(url, null);
+	}
+
+	/**
+	 * Deletes an S3 object from the bucket. In case the bucket is under
+	 * versioning, this operation will create a new S3 object with new
+	 * versionId, <code>x-amz-delete-marker: true</code> and zero content.
+	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectDELETE.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
+	 * @param url
+	 * @param versionId
+	 * @return the new versionId of the deleted object or {@code null} in case
+	 *         the bucket is not under versioning
+	 * @throws S3Exception
+	 *             to handle S3 errors
+	 * @throws IOException
+	 *             in case of general connection problems
+	 */
+	static public String deleteObjectVersion(URL url, String versionId) throws IOException, S3Exception {
+		/**
+		 * Prepare the request
+		 */
+		S3Request req = new S3Request(url);
+		req.setHttpMethod(HttpMethod.DELETE);
+		// init some vars, so you can grab them in the finally clause
+		HttpURLConnection con = null;
+		/**
+		 * Process the request
+		 */
+		con = req.getConnection();
+		S3Object obj = new S3Object(url);
+		// Set the attributes of the object
+		obj.responseHeader = con.getHeaderFields();
+		// log some infos
+		if (logger.isLoggable(Level.FINEST)) {
+			StringBuffer buf = new StringBuffer();
+			buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+			logger.finest(buf.toString());
+		}
+		if (logger.isLoggable(Level.FINE)) {
+			logger.fine("Successfully deleted S3 object '" + url.toString() + "' with version '" + versionId
+					+ "'");
+		}
+		// finish the method
+		return obj.getVersionId();
 	}
 
 	/**
@@ -317,8 +380,10 @@ public class S3Object {
 	 * @return the content type or null if not known
 	 */
 	public String getContentType() {
-		// TODO implement
-		return "text/plain";
+		if (null != responseHeader) {
+			return responseHeader.get(S3Headers.CONTENT_TYPE.toString()).get(0);
+		} else
+			return String.valueOf("utf-8");
 	}
 
 	/**
@@ -339,14 +404,13 @@ public class S3Object {
 	 * number of milliseconds since January 1, 1970 GMT.
 	 * 
 	 * @return the date the resource referenced by this URLConnection was last
-	 *         modified, or 0 if not known.
+	 *         modified, or -1 if not known.
 	 */
 	public long getLastModified() {
-		// if (null!=responseHeader) {
-		// return
-		// Integer.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED).get(0));
-		// } else return -1;
-		return lastModified;
+		if (null != responseHeader) {
+			return Integer.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED).get(0));
+		} else
+			return -1;
 	}
 
 	/**
@@ -357,7 +421,8 @@ public class S3Object {
 	 */
 	public String getVersionId() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.X_VERSION_ID).get(0);
+			return (responseHeader.containsKey(S3Headers.X_VERSION_ID)) ? responseHeader.get(
+					S3Headers.X_VERSION_ID).get(0) : null;
 		} else
 			return null;
 	}
@@ -369,25 +434,22 @@ public class S3Object {
 	 */
 	public String getETag() {
 		if (null != responseHeader) {
-			// trim the '"' from start and end of string. ETag is always 32Bytes
-			// long
+			// trim the '"' from start and end of string. ETag is a MD5 Hash and
+			// therefore 32Bytes long
 			return responseHeader.get(S3Headers.ETAG.toString()).get(0).substring(1, 33);
 		} else
 			return null;
 	}
 
 	/**
-	 * Returns the InputStream of this object.
+	 * Return the InputStream if the S3Object was generated by method
+	 * {@code getObject}
 	 * 
-	 * @return InputStream or null if not known
+	 * @return
+	 * @throws IOException
+	 *             in case of general connection problems
 	 */
-	public InputStream getInputStream() {
-		return inResponse;
+	public InputStream getInputStream() throws IOException {
+		return con.getInputStream();
 	}
-
-	public InputStream getErrorStream() {
-		// TODO Auto-generated method stub
-		return inError;
-	}
-
 }

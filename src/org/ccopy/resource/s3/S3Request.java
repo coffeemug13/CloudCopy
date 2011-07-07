@@ -136,9 +136,10 @@ public class S3Request {
 	 * Get the connection for the specified S3 request
 	 * 
 	 * @return
-	 * @throws IOException 
+	 * @throws IOException in case of problems with the connectivity e.g. Proxy 
+	 * @throws S3Exception when S3 response with HTTP Statuscode != 200 
 	 */
-	protected HttpURLConnection getConnection() throws IOException {
+	protected HttpURLConnection getConnection() throws IOException, S3Exception {
 		if (HttpMethod.proxy != null) {
 			con = (HttpURLConnection) url.openConnection(HttpMethod.proxy);
 		} else {
@@ -164,7 +165,8 @@ public class S3Request {
 		// create the canonicalizedResource
 		String host = url.getHost();
 		canonicalizedResource = "/"
-				+ host.substring(0, host.indexOf(".s3.amazonaws.com"))
+				// TODO clean this line of code to allow other hosts
+				+ host.substring(0, host.indexOf(".s3.amazonaws.com")) 
 				+ url.getPath();
 		// create the string to sign
 		String stringToSign = httpVerb + "\n" + contentMD5 + "\n" + contentType
@@ -189,8 +191,16 @@ public class S3Request {
 			buf.append(StringUtil.mapToString(con.getRequestProperties()));
 			logger.finest(buf.toString());
 		}
-		
-		// return the connection
+		/**
+		 * Check the HTTP status code of the connection for errors
+		 */
+		int res;
+		if ((httpVerb != HttpMethod.PUT) && (res = con.getResponseCode()) >= 300) {
+				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(), StringUtil.streamToString(con.getErrorStream()));
+		}
+		/**
+		 * finish the method
+		 */
 		return con;
 	}
 
@@ -220,8 +230,7 @@ public class S3Request {
 					.getBytes("UTF-8")));
 		} catch (Exception e) {
 			// this is a critical error when you can't sign a request, no recover possible
-			e.printStackTrace();
-			System.exit(1);
+			throw new IllegalStateException("Got a problem signing or encoding the stringTosign", e);
 		}
 		return signature;
 	}

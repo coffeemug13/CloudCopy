@@ -14,9 +14,9 @@ import java.util.logging.LogRecord;
  * MeinCustomFormatter formatiert den Protokollsatz wie folgt: Datum Version
  * lokalisierte Nachricht mit Parametern
  */
-public class DateFormatter extends Formatter {
+public class LoggingDateFormatter extends Formatter {
 
-	public DateFormatter() {
+	public LoggingDateFormatter() {
 		super();
 	}
 
@@ -28,8 +28,7 @@ public class DateFormatter extends Formatter {
 		// Mit Datum anfangen.
 		// Datum aus dem Protokollsatz abrufen und dem Puffer hinzufügen
 //		 Date date = new Date(record.getMillis());
-		 SimpleDateFormat df = new SimpleDateFormat(
-					"HH:mm:ss", Locale.ENGLISH);
+		 SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH);
 		 sb.append(df.format(new Date(record.getMillis())));
 		 sb.append(" ");
 

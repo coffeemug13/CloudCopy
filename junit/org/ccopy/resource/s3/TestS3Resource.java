@@ -16,7 +16,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.TestSetup;
-import org.ccopy.resource.util.DateFormatter;
+import org.ccopy.resource.util.LoggingDateFormatter;
 import org.ccopy.resource.ResourceAuthenticator;
 import org.ccopy.util.HttpMethod;
 import org.junit.After;
@@ -41,7 +41,7 @@ public class TestS3Resource {
 		// set the Log Format and Level
 		ConsoleHandler ch = new ConsoleHandler();
 		ch.setLevel(Level.FINEST);
-		ch.setFormatter(new DateFormatter());
+		ch.setFormatter(new LoggingDateFormatter());
 		// add to logger
 		logger.addHandler(ch);
 		logger.setLevel(Level.FINEST);
