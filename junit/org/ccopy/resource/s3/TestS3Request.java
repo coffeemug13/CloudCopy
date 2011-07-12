@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
@@ -29,6 +30,7 @@ import org.junit.Test;
  *
  */
 public class TestS3Request {
+	private static final String TEST_URL_OBJECT = "https://ccopy.s3.amazonaws.com/test.txt";
 	public static Logger logger = Logger.getLogger("org.ccopy");
 
 	/**
@@ -73,7 +75,7 @@ public class TestS3Request {
 	@Test
 	public void testS3RequestGetObjectUrl() {
 		try {
-			URL url = new URL ("https://mholakovsky.s3.amazonaws.com/test.txt");
+			S3URL url = new S3URL (TEST_URL_OBJECT);
 			S3Request req = new S3Request(url);
 			req.proxy = null;
 			req.setHttpMethod(HttpMethod.GET);
@@ -115,7 +117,9 @@ public class TestS3Request {
 	 */
 	@Test
 	public void testGetcanonicalizedAmzHeaders() {
-		S3Request req = new S3Request(null);
+		S3Request req;
+		try {
+			req = new S3Request(new S3URL(TEST_URL_OBJECT));
 		req.addRequestHeader("ytest", "value1");
 		req.addRequestHeader("x-amz-meta-Username", "value1");
 		req.addRequestHeader("X-Amz-Meta-ReviewedBy", "alice@s3.com");
@@ -123,14 +127,18 @@ public class TestS3Request {
 		req.addRequestHeader("X-Amz-Meta-ReviewedBy", "bob@s3.com");
 		//System.out.println(req.getcanonicalizedAmzHeaders());
 		assertEquals(req.getcanonicalizedAmzHeaders(), "x-amz-meta-checksumalgorithm:crc32\nx-amz-meta-reviewedby:bob@s3.com,alice@s3.com\nx-amz-meta-username:value1\n");
+		} catch (Exception e) {
+			fail("unexpected exception:\n" + e.toString());
+		}
 	}
 	/**
 	 * Test method for {@link org.ccopy.S3.S3Request#sign()}.
 	 */
 	@Test
 	public void testSign() {
-		S3Request req = new S3Request(null);
+		S3Request req;
 		try {
+			req = new S3Request(new S3URL(TEST_URL_OBJECT));
 			String sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "GET\n\n\nTue, 27 Mar 2007 19:36:42 +0000\n/johnsmith/photos/puppy.jpg");
 			assertEquals(sign, "xXjDGYUmKxnwqr5KXNPGldn5LbA=");
 			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n\nimage/jpeg\nTue, 27 Mar 2007 21:15:45 +0000\n/johnsmith/photos/puppy.jpg");
@@ -138,8 +146,7 @@ public class TestS3Request {
 			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n4gJE4saaMU4BqNR0kLY+lw==\napplication/x-download\nTue, 27 Mar 2007 21:06:08 +0000\nx-amz-acl:public-read\nx-amz-meta-checksumalgorithm:crc32\nx-amz-meta-filechecksum:0x02661779\nx-amz-meta-reviewedby:joe@johnsmith.net,jane@johnsmith.net\n/static.johnsmith.net/db-backup.dat.gz");
 			assertEquals(sign, "C0FlOtU8Ylb9KDTpZqYkZPX91iI=");
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			fail("unexpected exception:\n" + e.toString());
 		} 
 	}
 }

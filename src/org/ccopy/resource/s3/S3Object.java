@@ -15,6 +15,7 @@ import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.ccopy.resource.util.MimeType;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 
@@ -26,7 +27,7 @@ import org.ccopy.util.HttpMethod;
 public class S3Object {
 	private static Logger logger = Logger.getLogger("org.ccopy");
 	static public String delimiter = "/";
-	protected URL url;
+	protected S3URL url;
 	protected HashMap<String, String> meta = null;
 	protected Map<String, List<String>> responseHeader = null;
 	/**
@@ -38,7 +39,7 @@ public class S3Object {
 	/**
 	 * Constructor for S3Object
 	 */
-	protected S3Object(URL url) {
+	protected S3Object(S3URL url) {
 		this.url = url;
 	}
 
@@ -58,7 +59,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public S3Object getObject(URL url, String versionId) throws IOException, S3Exception {
+	static public S3Object getObject(S3URL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */
@@ -147,7 +148,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public S3Object getHeadObject(URL url, String versionId) throws IOException, S3Exception {
+	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */
@@ -185,7 +186,7 @@ public class S3Object {
 	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectPUT.html">Amazon
 	 *      Simple Storage Service - API Reference</a>
 	 * @param the
-	 *            URL for the S3 object
+	 *            URL for the S3 object. The key length is max. 1024 Byte
 	 * @param additional
 	 *            metadata for the S3 object
 	 * @param the
@@ -196,8 +197,12 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String putObject(URL url, Map<String, String> meta2, String contentType, int contentLength,
+	static public String putObject(S3URL url, Map<String, String> meta2, MimeType contentType, int contentLength,
 			InputStream in) throws IOException, S3Exception {
+		// perform some checks
+		if (null == in) throw new NullPointerException("InputStream may be null");
+		if (null == url) throw new NullPointerException("URL may be null");
+		if (url.getPath().getBytes().length > 1024) throw new IllegalArgumentException("The path of the URL (= the S3 key) exceeds 1024 Bytes");
 		/**
 		 * Prepare the request
 		 */
@@ -207,7 +212,10 @@ public class S3Object {
 		// you can't set the "Content-Length" attribute via addRequestHeader
 		req.setFixedLengthStreamingMode(contentLength);
 		// content type is mandatory for this request!
-		req.setContentType("text/plain");
+		if (null!=contentType)
+			req.setContentType(contentType.toString());
+		else
+			req.setContentType(MimeType.DEFAULT);
 		// now set some header attributes if available
 		if (null != meta2) {
 			for (Entry<String, String> entry : meta2.entrySet()) {
@@ -281,7 +289,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String deleteObject(URL url) throws IOException, S3Exception {
+	static public String deleteObject(S3URL url) throws IOException, S3Exception {
 		return deleteObjectVersion(url, null);
 	}
 
@@ -302,7 +310,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String deleteObjectVersion(URL url, String versionId) throws IOException, S3Exception {
+	static public String deleteObjectVersion(S3URL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */

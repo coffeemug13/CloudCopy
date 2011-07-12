@@ -4,29 +4,19 @@
 package org.ccopy.resource.s3;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.Authenticator;
-import java.net.HttpCookie;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
-import java.net.SocketAddress;
 import java.net.URL;
-import java.net.Proxy.Type;
 import java.security.GeneralSecurityException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.TimeZone;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -38,7 +28,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.ccopy.resource.util.Base64;
 import org.ccopy.resource.util.StringUtil;
-import org.ccopy.resource.ResourceException;
 import org.ccopy.util.HttpMethod;
 
 /**
@@ -73,10 +62,10 @@ public class S3Request {
 	 * Constructor for S3Request you will need always a URL to start with, which
 	 * contains authority (= host + bucketname) + path (=key)
 	 * 
-	 * @param url
+	 * @param url2
 	 */
-	public S3Request(URL url) {
-		this.url = url;
+	public S3Request(S3URL url2) {
+		this.url = url2.toURL();
 	}
 
 	/**
@@ -147,6 +136,8 @@ public class S3Request {
 		}
 		// set the http request method
 		con.setRequestMethod(httpVerb.toString());
+		// TODO resolve the redirect manually and rewrite the URL to avoid getting redirected for every request
+		// con.setInstanceFollowRedirects(false);
 		// enable output mode for the connection for put
 		if (httpVerb == HttpMethod.PUT) {
 			con.setDoOutput(true);
