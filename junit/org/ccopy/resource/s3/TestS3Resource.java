@@ -74,7 +74,7 @@ public class TestS3Resource {
 	@Test
 	public void testS3ResourceURL() {
 		try {
-			URL url = new URL(null);
+			S3RL url = new S3RL(null);
 			S3Resource s3 = new S3Resource(url);
 			fail("Constructor should not except null");
 		} catch (Exception expected) {
@@ -163,7 +163,7 @@ public class TestS3Resource {
 	}
 
 	/**
-	 * Test method for {@link org.ccopy.resource.AbstractResource#addMetadata(java.lang.String, java.lang.String)}.
+	 * Test method for {@link org.ccopy.resource.Resource#addMetadata(java.lang.String, java.lang.String)}.
 	 */
 	@Test
 	public void testAddMetadata() {
@@ -171,7 +171,7 @@ public class TestS3Resource {
 	}
 
 	/**
-	 * Test method for {@link org.ccopy.resource.AbstractResource#getMetadata()}.
+	 * Test method for {@link org.ccopy.resource.Resource#getMetadata()}.
 	 */
 	@Test
 	public void testGetMetadata() {

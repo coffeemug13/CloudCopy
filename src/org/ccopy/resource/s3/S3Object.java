@@ -27,7 +27,7 @@ import org.ccopy.util.HttpMethod;
 public class S3Object {
 	private static Logger logger = Logger.getLogger("org.ccopy");
 	static public String delimiter = "/";
-	protected S3URL url;
+	protected S3RL url;
 	protected HashMap<String, String> meta = null;
 	protected Map<String, List<String>> responseHeader = null;
 	/**
@@ -39,7 +39,7 @@ public class S3Object {
 	/**
 	 * Constructor for S3Object
 	 */
-	protected S3Object(S3URL url) {
+	protected S3Object(S3RL url) {
 		this.url = url;
 	}
 
@@ -59,7 +59,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public S3Object getObject(S3URL url, String versionId) throws IOException, S3Exception {
+	static public S3Object getObject(S3RL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */
@@ -148,7 +148,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException, S3Exception {
+	static public S3Object getHeadObject(S3RL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */
@@ -197,7 +197,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String putObject(S3URL url, Map<String, String> meta2, MimeType contentType, int contentLength,
+	static public String putObject(S3RL url, Map<String, String> meta2, MimeType contentType, int contentLength,
 			InputStream in) throws IOException, S3Exception {
 		// perform some checks
 		if (null == in) throw new NullPointerException("InputStream may be null");
@@ -289,7 +289,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String deleteObject(S3URL url) throws IOException, S3Exception {
+	static public String deleteObject(S3RL url) throws IOException, S3Exception {
 		return deleteObjectVersion(url, null);
 	}
 
@@ -310,7 +310,7 @@ public class S3Object {
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public String deleteObjectVersion(S3URL url, String versionId) throws IOException, S3Exception {
+	static public String deleteObjectVersion(S3RL url, String versionId) throws IOException, S3Exception {
 		/**
 		 * Prepare the request
 		 */

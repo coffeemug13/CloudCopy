@@ -64,7 +64,7 @@ public class S3Request {
 	 * 
 	 * @param url2
 	 */
-	public S3Request(S3URL url2) {
+	public S3Request(S3RL url2) {
 		this.url = url2.toURL();
 	}
 
@@ -100,8 +100,6 @@ public class S3Request {
 	public void addRequestHeader(String key, String value) {
 		key = key.trim();
 		value = value.trim();
-		// add request header
-//		headers.add(key + ": " + value);
 		// collect amz headers
 		if (key.toLowerCase().startsWith("x-amz-")) {
 			if (!key.toLowerCase().equals(S3Headers.X_AMZ_META.toString())) {
