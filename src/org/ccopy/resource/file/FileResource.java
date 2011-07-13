@@ -45,7 +45,7 @@ public class FileResource extends AbstractResource implements Resource{
 	protected FileResource(URI url) {
 		//TODO check whether it's a FileResource
 		super(url);
-		file = new File(url.);
+		file = new File(url);
 	}
 	public FileResource(Resource targetDirectory, String name) throws URISyntaxException {
 		//TODO check whether it's a FileResource

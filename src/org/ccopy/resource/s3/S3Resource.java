@@ -1,6 +1,3 @@
-/**
- *
- */
 package org.ccopy.resource.s3;
 
 import java.io.IOException;
@@ -43,42 +40,47 @@ public class S3Resource extends Resource {
 	/**
 	 * Construct an Resource based on a {@code ResourceLocator}.
 	 * 
-	 * @param url - the locator for this resource
+	 * @param url
+	 *            - the locator for this resource
 	 */
 	public S3Resource(S3RL url) {
 		super(url);
 	}
 
-//	/**
-//	 * Creates a new <code>S3Resource</code> instance from a parent abstract
-//	 * pathname and a child pathname string.
-//	 * 
-//	 * <p>
-//	 * If <code>parent</code> is <code>null</code> then the new
-//	 * <code>File</code> instance is created as if by invoking the
-//	 * single-argument <code>File</code> constructor on the given
-//	 * <code>child</code> pathname string.
-//	 * 
-//	 * <p>
-//	 * Otherwise the <code>parent</code> abstract pathname is taken to denote a
-//	 * directory, and the <code>child</code> pathname string is taken to denote
-//	 * either a directory or a file. If the <code>child</code> pathname string
-//	 * is absolute then it is converted into a relative pathname in a
-//	 * system-dependent way. If <code>parent</code> is the empty abstract
-//	 * pathname then the new <code>File</code> instance is created by converting
-//	 * <code>child</code> into an abstract pathname and resolving the result
-//	 * against a system-dependent default directory. Otherwise each pathname
-//	 * string is converted into an abstract pathname and the child abstract
-//	 * pathname is resolved against the parent.
-//	 * 
-//	 * @param parent
-//	 * @param child
-//	 * @throws MalformedURLException
-//	 * @throws ResourceException
-//	 */
-//	public S3Resource(S3Resource parent, String child) throws MalformedURLException {
-//		super(parent, child);
-//	}
+	// /**
+	// * Creates a new <code>S3Resource</code> instance from a parent abstract
+	// * pathname and a child pathname string.
+	// *
+	// * <p>
+	// * If <code>parent</code> is <code>null</code> then the new
+	// * <code>File</code> instance is created as if by invoking the
+	// * single-argument <code>File</code> constructor on the given
+	// * <code>child</code> pathname string.
+	// *
+	// * <p>
+	// * Otherwise the <code>parent</code> abstract pathname is taken to denote
+	// a
+	// * directory, and the <code>child</code> pathname string is taken to
+	// denote
+	// * either a directory or a file. If the <code>child</code> pathname string
+	// * is absolute then it is converted into a relative pathname in a
+	// * system-dependent way. If <code>parent</code> is the empty abstract
+	// * pathname then the new <code>File</code> instance is created by
+	// converting
+	// * <code>child</code> into an abstract pathname and resolving the result
+	// * against a system-dependent default directory. Otherwise each pathname
+	// * string is converted into an abstract pathname and the child abstract
+	// * pathname is resolved against the parent.
+	// *
+	// * @param parent
+	// * @param child
+	// * @throws MalformedURLException
+	// * @throws ResourceException
+	// */
+	// public S3Resource(S3Resource parent, String child) throws
+	// MalformedURLException {
+	// super(parent, child);
+	// }
 
 	/**
 	 * Validate the URL to be a S3 URL
@@ -103,16 +105,18 @@ public class S3Resource extends Resource {
 	protected void getStatus() throws SecurityException, IOException, ResourceException {
 		// TODO implement
 	}
-	
+
 	public boolean canRead() throws IOException, SecurityException, ResourceException {
-		// TODO check whether to catch SecurityException because in that case you can't read it??!
+		// TODO check whether to catch SecurityException because in that case
+		// you can't read it??!
 		if (exists == null)
 			getStatus();
 		return canRead;
 	}
 
 	public boolean canWrite() throws SecurityException, IOException, ResourceException {
-		// TODO check whether to catch SecurityException because in that case you can't read it??!
+		// TODO check whether to catch SecurityException because in that case
+		// you can't read it??!
 		if (exists == null)
 			getStatus();
 		return canWrite;
@@ -216,10 +220,12 @@ public class S3Resource extends Resource {
 		return assetList;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see org.ccopy.resource.Resource#renameTo(java.net.URI)
 	 */
-	//@Override
+	// @Override
 	public boolean renameTo(URI dest) throws SecurityException, IOException {
 		// TODO Auto-generated method stub
 		return false;
@@ -251,12 +257,38 @@ public class S3Resource extends Resource {
 		// TODO Auto-generated method stub
 		return false;
 	}
+
 	/**
 	 * S3 supports custom metadata
+	 * 
 	 * @return true
 	 */
 	@Override
 	public boolean supportsMetadata() {
 		return true;
+	}
+
+	@Override
+	public String getChild(String name) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Resource getChildResource(String name) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String getParent() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Resource getParentResource() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 }

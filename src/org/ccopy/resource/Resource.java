@@ -1,5 +1,6 @@
 package org.ccopy.resource;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -13,8 +14,9 @@ import java.util.logging.Logger;
 import org.ccopy.resource.s3.S3RL;
 
 /**
- * This class provides a skeletal implementation of the Asset interface, to
- * minimize the effort required to implement this interface.
+ * This class represents a generic Resource.
+ * <p>
+ * The design of this class is derived from the {@link File} class.
  * 
  * @author mholakovsky
  * 
@@ -24,13 +26,14 @@ public abstract class Resource {
 	 * The service-dependent default name-separator character. This field is
 	 * initialized to the typical value
 	 */
-	public static String seperator = "/";
+	public static String seperator;
 	/**
-	 * The resource locator of this resource
+	 * The resource locator of this resource. This property MUST be set when the
+	 * class is constructed.
 	 */
 	protected ResourceLocator url;
 	/**
-	 * The metadata
+	 * The metadata of this resource
 	 */
 	protected HashMap<String, String> attributes = null;
 	/**
@@ -49,7 +52,7 @@ public abstract class Resource {
 	private static Logger logger = Logger.getLogger("org.ccopy");
 
 	/**
-	 * Constructor of AbstractResource with URL object
+	 * Constructor of {@code Resource} based on a {@link ResourceLocator}.
 	 * 
 	 * @param url
 	 *            - the locator for this resource
@@ -63,22 +66,27 @@ public abstract class Resource {
 	}
 
 	/**
-	 * Constructor of AbstractResource as child of another resource TODO parent
-	 * MUST be a directory (=trailing "/") otherwise Exception
+	 * Constructor of {@code Resource} as child of another resource.
 	 * 
-	 * @param res
+	 * @param parent
+	 *            a {@code Resource} with "{@code Resource#isDirectory()==true}"
 	 * @param child
-	 * @throws ResourceException
+	 *            the filename of the child as string
+	 * @throws NullPointerException
+	 *             when argument is {@code null}
 	 * @throws IOException
-	 * @throws ResourceNotFoundException
-	 * @throws SecurityException
+	 *             in case of problems with connectivity to the service behind
+	 *             the ressource
+	 * @throws ResourceException
+	 *             when the service behind the resource can't process the
+	 *             request, e.g. bad request
 	 */
 	protected Resource(Resource parent, String child) throws SecurityException, IOException,
 			ResourceException {
 		if ((child == null) || (parent == null))
 			throw new NullPointerException("both arguments must not be null");
 		if (parent.isDirectory()) {
-			url = new S3RL(parent.toURL() + child);
+			url = parent.getChildResource(child).toRL();
 		} else
 			throw new MalformedURLException("parent resource must be an directory");
 	}
@@ -96,6 +104,7 @@ public abstract class Resource {
 		else
 			throw new NullPointerException("Key MUST NOT be null");
 	}
+
 	/**
 	 * Rename the resource.
 	 * 
@@ -110,6 +119,7 @@ public abstract class Resource {
 		// TODO Auto-generated method stub
 		return false;
 	}
+
 	/**
 	 * Deletes the Resource denoted by this abstract pathname. If this pathname
 	 * denotes a directory (trailing slash) then it must be empty in order to be
@@ -125,12 +135,13 @@ public abstract class Resource {
 	}
 
 	/**
-	 * Return the URL representation of this Resource.
+	 * Return the {@link ResourceLocator} representation of this Resource.
 	 * 
-	 * @return a URL object representing this Resource, which is URLEncoded
+	 * @return a ResourceLocator object representing this Resource, which is
+	 *         URLEncoded
 	 */
-	public URL toURL() {
-		return url.toURL();
+	private ResourceLocator toRL() {
+		return url;
 	}
 
 	/**
@@ -159,11 +170,11 @@ public abstract class Resource {
 		return url.getPath();
 	}
 
-	public abstract String getChild(String name);
+	public abstract ResourceLocator getChild(String name);
 
 	public abstract Resource getChildResource(String name);
 
-	public abstract String getParent();
+	public abstract ResourceLocator getParent();
 
 	public abstract Resource getParentResource();
 
@@ -191,7 +202,6 @@ public abstract class Resource {
 		// TODO Auto-generated method stub
 		return null;
 	}
-
 
 	/**
 	 * Creates a directory named by this Resource. This is an atomic operation.

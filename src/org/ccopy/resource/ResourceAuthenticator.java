@@ -22,7 +22,7 @@ public class ResourceAuthenticator extends Authenticator {
 	 * @param passwd
 	 */
 	public ResourceAuthenticator (String username, String passwd) {
-		// TODO implement seeting multiple credentials for different hosts
+		// TODO implement setting multiple credentials for different hosts
 		ResourceAuthenticator.username = username;
     	ResourceAuthenticator.passwd = passwd;
     	logger.fine("using following Credentials for S3 Authentication: " + username + " & " + passwd);
