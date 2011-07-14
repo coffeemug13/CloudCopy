@@ -7,7 +7,7 @@ package org.ccopy.resource.s3;
  * This class indicates a error from the Amazon Simple Storage Service. You can
  * retrieve the errorCode and detailed error message if available
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class S3Exception extends Exception {

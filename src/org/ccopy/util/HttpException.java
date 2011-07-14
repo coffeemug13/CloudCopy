@@ -8,7 +8,7 @@ package org.ccopy.util;
  * This class is the general class of exceptions produced by failed or
  * interrupted HTTP operations.
  * 
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class HttpException extends Exception {

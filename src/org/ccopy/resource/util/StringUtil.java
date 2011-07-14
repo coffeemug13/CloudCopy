@@ -14,7 +14,7 @@ import java.util.Map.Entry;
 /**
  * Helper class for manipulating streams
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class StringUtil {

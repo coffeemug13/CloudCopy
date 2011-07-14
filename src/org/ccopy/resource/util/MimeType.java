@@ -15,7 +15,7 @@ import java.util.zip.DataFormatException;
  * This class represents a valid mimetype. You can create a MimeType only throw
  * factory methods which ensure that the mimetype string is valid.
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class MimeType {

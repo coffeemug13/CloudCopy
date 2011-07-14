@@ -18,7 +18,7 @@ import org.junit.Assume;
 /**
  * Implements the Asset as simple File Object.
  *
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class FileResource extends AbstractResource implements Resource{

@@ -4,7 +4,7 @@
 package org.ccopy.resource;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class ResourceNotFoundException extends ResourceException {

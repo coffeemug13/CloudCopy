@@ -4,7 +4,10 @@
 package org.ccopy.resource;
 
 /**
- * @author mholakovsky
+ * This exception indicates, that the service behind the resource can't process the request. There
+ * are various reason why this can happen, e.g. request was not correct or you don't have the right
+ * or problems with the connectivity
+ * @author coffeemug13
  *
  */
 public class ResourceException extends Exception {

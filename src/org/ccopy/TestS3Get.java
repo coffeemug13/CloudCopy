@@ -56,8 +56,8 @@ public class TestS3Get {
 			 */
 			// AKIAIGZKXWFKU74XTWAA - q5If10+UBO8Gu4jlD5Lno038Y9TXF06fj98CWn8L
 			S3 req = new S3();
-			// URL("http://mholakovsky.s3.amazonaws.com/public/impressum.html");
-			URL obj = new URL("https://mholakovsky.s3.amazonaws.com/test.txt");
+			// URL("http://coffeemug13.s3.amazonaws.com/public/impressum.html");
+			URL obj = new URL("https://coffeemug13.s3.amazonaws.com/test.txt");
 			SocketAddress addr = new InetSocketAddress("proxy.sozvers.at", 8080);
 			Proxy proxy = new Proxy(Type.HTTP, addr);
 			HttpURLConnection con = (HttpURLConnection) obj
@@ -71,7 +71,7 @@ public class TestS3Get {
 			String expire = df.format(new Date());
 			logger.finer("using following Expire date: " + expire);
 			String stringTosign = "GET\n\n\n" + expire
-					+ "\n/mholakovsky/test.txt";
+					+ "\n/coffeemug13/test.txt";
 			logger.fine("this is the string to sign:\n" + stringTosign);
 			PasswordAuthentication pwd = Authenticator
 					.requestPasswordAuthentication(null, 0, "", "", "");

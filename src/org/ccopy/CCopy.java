@@ -25,7 +25,7 @@ import org.ccopy.resource.Resource;
  * checksum of the file - stream the file to the new destination - case: file
  * tree - process first all directories beginning in the root
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class CCopy {

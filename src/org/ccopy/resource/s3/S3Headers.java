@@ -6,7 +6,7 @@ package org.ccopy.resource.s3;
 import java.net.Proxy;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  *
     public static final String ETAG = "ETag";

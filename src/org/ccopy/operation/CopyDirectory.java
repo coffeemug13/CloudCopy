@@ -18,7 +18,7 @@ import javax.imageio.IIOException;
 import org.ccopy.resource.Resource;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class CopyDirectory {

@@ -4,7 +4,7 @@
 package org.ccopy;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public enum options {

@@ -31,7 +31,7 @@ import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class S3Request {

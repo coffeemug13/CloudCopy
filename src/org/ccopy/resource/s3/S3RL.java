@@ -9,14 +9,11 @@ import java.net.*;
 import org.ccopy.resource.ResourceLocator;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
-public class S3RL implements ResourceLocator {
-	/**
-	 * the valid URL for the S3 object
-	 */
-	private URL url;
+public class S3RL extends ResourceLocator {
+	
 	/**
 	 * the default hostname for S3
 	 */
@@ -97,23 +94,5 @@ public class S3RL implements ResourceLocator {
 	 */
 	public String getPath() {
 		return url.getPath();
-	}
-
-	/* (non-Javadoc)
-	 * @see java.lang.Object#hashCode()
-	 */
-	@Override
-	public int hashCode() {
-		return url.hashCode();
-	}
-
-	@Override
-	public boolean equals(Object obj) {
-		return url.equals(obj);
-	}
-
-	@Override
-	public String toExternalForm() {
-		return url.toExternalForm();
 	}
 }

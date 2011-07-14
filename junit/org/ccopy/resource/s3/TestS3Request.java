@@ -26,7 +26,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class TestS3Request {

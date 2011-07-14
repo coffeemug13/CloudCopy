@@ -27,16 +27,20 @@ import java.net.URL;
  * what a "filename" is. It only "locates" one Resource! The {@code Resource}
  * interprets this resource locator
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
-public interface ResourceLocator {
+public abstract class ResourceLocator {
+	/**
+	 * the valid URL for the S3 object
+	 */
+	protected URL url;
 	/**
 	 * Gets the path part of this <code>ResourceURL</code>.
 	 * 
 	 * @return
 	 */
-	public String getPath();
+	public abstract String getPath();
 
 	/**
 	 * Constructs a URL that represent this Resource. Don't mistake that as
@@ -44,7 +48,7 @@ public interface ResourceLocator {
 	 * 
 	 * @return
 	 */
-	public URL toURL();
+	public abstract URL toURL();
 
 	/**
 	 * Compares this ResourceLocator with an other object.
@@ -55,7 +59,9 @@ public interface ResourceLocator {
 	 *         {@code ResourceLocator} or {@code URL} object which has the same
 	 *         hash code
 	 */
-	public boolean equals(Object obj);
+	public boolean equals(Object obj){
+		return url.equals(obj);
+	}
 
 	/**
 	 * Computes the hash code for this resource based on the internal URL
@@ -63,7 +69,9 @@ public interface ResourceLocator {
 	 * 
 	 * @return the hash code
 	 */
-	public int hashCode();
+	public int hashCode(){
+		return url.hashCode();
+	}
 
 	/**
 	 * Constructs a string representation of this <code>ResourceLocator</code>.
@@ -71,5 +79,7 @@ public interface ResourceLocator {
 	 * @return a string representing this resource URL, e.g.
 	 *         "https://bucket.s3.amazon.com/textfile.txt"
 	 */
-	public String toExternalForm();
+	public String toExternalForm(){
+		return url.toExternalForm();
+	}
 }

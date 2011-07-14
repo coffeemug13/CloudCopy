@@ -13,7 +13,7 @@ public class test {
 	 */
 	public static void main(String[] args) {
 //		try {
-//			URL url = new URL("https://a.mholakovsky.s3.amazonaws.com/test.txt");
+//			URL url = new URL("https://a.coffeemug13.s3.amazonaws.com/test.txt");
 //			System.out.println(url);
 //			System.out.println("Path:" + url.getPath());
 //			String host = url.getHost();

@@ -26,7 +26,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class TestS3Resource {
@@ -104,7 +104,7 @@ public class TestS3Resource {
 	@Test
 	public void testGetStatus() {
 		try {
-			S3Resource s3 = new S3Resource(new URL("https://mholakovsky.s3.amazonaws.com/test.txt"));
+			S3Resource s3 = new S3Resource(new URL("https://coffeemug13.s3.amazonaws.com/test.txt"));
 			s3.getStatus();
 			assertTrue(s3.exists());
 			assertTrue(s3.getLength() == 49);

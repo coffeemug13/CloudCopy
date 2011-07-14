@@ -8,7 +8,7 @@ import java.net.PasswordAuthentication;
 import java.util.logging.Logger;
 
 /**
- * @author mholakovsky
+ * @author coffeemug13
  *
  */
 public class ResourceAuthenticator extends Authenticator {

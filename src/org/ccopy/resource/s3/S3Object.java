@@ -22,7 +22,7 @@ import org.ccopy.util.HttpMethod;
 /**
  * The S3Object provides methods to access and manipulate objects in S3 buckets.
  * 
- * @author mholakovsky
+ * @author coffeemug13
  */
 public class S3Object {
 	private static Logger logger = Logger.getLogger("org.ccopy");
@@ -44,7 +44,7 @@ public class S3Object {
 	}
 
 	/**
-	 * Get the Object from S3.
+	 * Get the Object and http connection from S3.
 	 * 
 	 * @see <a
 	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectGET.html">Amazon

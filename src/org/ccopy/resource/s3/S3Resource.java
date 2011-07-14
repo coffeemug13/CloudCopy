@@ -24,7 +24,7 @@ import org.ccopy.util.HttpMethod;
  * Implements the Asset as simple File Object.
  * 
  * 
- * @author mholakovsky
+ * @author coffeemug13
  * 
  */
 public class S3Resource extends Resource {
