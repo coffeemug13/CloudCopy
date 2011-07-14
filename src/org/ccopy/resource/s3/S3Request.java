@@ -26,6 +26,7 @@ import java.util.logging.Logger;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.ccopy.resource.ResourceError;
 import org.ccopy.resource.util.Base64;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
@@ -64,7 +65,7 @@ public class S3Request {
 	 * 
 	 * @param url2
 	 */
-	public S3Request(S3RL url2) {
+	public S3Request(S3URL url2) {
 		this.url = url2.toURL();
 	}
 
@@ -106,7 +107,7 @@ public class S3Request {
 			String oldKey = amzHeaders.put(key.toLowerCase(), value);
 			if (oldKey != null)
 				amzHeaders.put(key.toLowerCase(), value + "," + oldKey);
-			} else System.err.println("skipping to add user metadata to S3 Request Header because missing unique key after 'x-amz-meta-'");
+			} //else System.err.println("skipping to add user metadata to S3 Request Header because missing unique key after 'x-amz-meta-'");
 		} else amzHeaders.put(key, value);
 
 	}
@@ -207,7 +208,6 @@ public class S3Request {
 	 * @param yourSecretAccessKeyID
 	 * @param stringToSign
 	 * @return
-	 * @throws GeneralSecurityException
 	 */
 	protected String sign(String yourSecretAccessKeyID, String stringToSign) {
 		String signature = null;
@@ -219,7 +219,7 @@ public class S3Request {
 					.getBytes("UTF-8")));
 		} catch (Exception e) {
 			// this is a critical error when you can't sign a request, no recover possible
-			throw new IllegalStateException("Got a problem signing or encoding the stringTosign", e);
+			throw new ResourceError(ResourceError.ERROR_JVM,"Got a problem signing or encoding the stringTosign", e);
 		}
 		return signature;
 	}

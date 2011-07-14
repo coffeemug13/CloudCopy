@@ -1,8 +1,8 @@
 package org.ccopy.resource;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,11 +36,10 @@ import java.util.logging.Logger;
  * implementation of {@code Resource} like {@code FileResource} decides to perform changes to
  * properties immediately.
  * <p>
- * Every other method which set's properties of the resource like
- * {@code Resource#renameTo(ResourceLocator)} <em>MAY</em> perform immediate actions on the resource
- * but needs a {@code Resource#create()} or {@code Resource#update()} to get persistent (= written
- * to the service). Therefore you <em>MUST</em> call one of the guaranteed persistent methods to
- * ensure that changes are persisted.
+ * Every other method which set's properties of the resource like {@code Resource#renameTo(URL)}
+ * <em>MAY</em> perform immediate actions on the resource but needs a {@code Resource#create()} or
+ * {@code Resource#update()} to get persistent (= written to the service). Therefore you
+ * <em>MUST</em> call one of the guaranteed persistent methods to ensure that changes are persisted.
  * 
  * @author coffeemug13
  */
@@ -49,12 +48,7 @@ public abstract class Resource {
 	 * The service-dependent default name-separator character. This field is initialized to the
 	 * typical value
 	 */
-	public static String seperator;
-	/**
-	 * The resource locator of this resource. This property MUST be set when the class is
-	 * constructed.
-	 */
-	protected ResourceLocator url;
+	public static String SEPERATOR;
 	/**
 	 * The metadata of this resource
 	 */
@@ -63,7 +57,8 @@ public abstract class Resource {
 	 * The following attributes are flags
 	 */
 	protected Boolean exists = null;
-	protected boolean isDirectory;
+	protected boolean isFile = false;
+	protected boolean typeDefined = false;
 	protected boolean canRead;
 	protected boolean canWrite;
 	protected String md5Hash = null;
@@ -84,18 +79,20 @@ public abstract class Resource {
 	 * ############################################################
 	 */
 	/**
-	 * Constructor of {@code Resource} based on a {@link ResourceLocator}.
+	 * Constructor of {@code Resource} based on a {@link URL}.
 	 * 
 	 * @param url
 	 *        - the locator for this resource
 	 * @throws NullPointerException
 	 *         when argument is {@code null}
+	 * @throws MalformedURLException
+	 *         when the URL is invalid
 	 */
-	protected Resource(ResourceLocator url) {
+	protected Resource(URL url) throws MalformedURLException {
 		if (null == url)
 			throw new NullPointerException("Argument must not be null");
-		this.url = url;
-		if (logger.isLoggable(Level.FINE)) logger.fine("Resource created for '"+ url.toString() + "'");
+		if (logger.isLoggable(Level.FINE))
+			logger.fine("Resource creating for '" + url.toString() + "'");
 	}
 
 	/**
@@ -106,19 +103,19 @@ public abstract class Resource {
 	 * @param child
 	 *        the filename of the child as string
 	 * @throws NullPointerException
-	 *         when argument is {@code null}
+	 *         when arguments are {@code null}
+	 * @throws IllegalArgumentException
+	 *         when the parent resource is not a directory resource
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	protected Resource(Resource parent, String child) throws SecurityException, IOException,
-			ResourceException {
+	protected Resource(Resource parent, String child) throws MalformedURLException {
 		if ((child == null) || (parent == null))
 			throw new NullPointerException("both arguments must not be null");
-		if (parent.isDirectory()) {
-			url = parent.getChildResource(child).toRL();
-			if (logger.isLoggable(Level.FINE)) logger.fine("Resource created for '"+ url.toString() + "'");
-		} else
-			throw new MalformedURLException("parent resource must be an directory");
+		if (parent.isDirectory() || )
+			throw new IllegalArgumentException("parent resource must be an directory");
+		if (logger.isLoggable(Level.FINE))
+			logger.fine("Resource creating for '" + parent.toString() + "' + '" + child + "'");
 	}
 
 	/*
@@ -226,7 +223,7 @@ public abstract class Resource {
 	 *        - the locator of the resource.
 	 * @return {@code true} if and only if the renaming succeeded; {@code false} otherwise
 	 */
-	public abstract boolean renameTo(ResourceLocator dest) throws ResourceException;
+	public abstract boolean renameTo(URL dest) throws ResourceException;
 
 	/**
 	 * Sets the last-modified time of the resource.
@@ -283,13 +280,11 @@ public abstract class Resource {
 	}
 
 	/**
-	 * Return the {@link ResourceLocator} representation of this Resource.
+	 * Return the {@link URL} representing this Resource.
 	 * 
-	 * @return a ResourceLocator object representing this Resource, which is URLEncoded
+	 * @return a URL object representing this Resource, which is URLEncoded
 	 */
-	private ResourceLocator toRL() {
-		return url;
-	}
+	public abstract URL toURL();
 
 	/**
 	 * Return an unmodifiable Map of the metadata of the resource
@@ -309,7 +304,7 @@ public abstract class Resource {
 	 */
 	public String getPath() {
 		// TODO unclear whether it should be decoded first?
-		return url.getPath();
+		return toURL().getPath();
 	}
 
 	/**
@@ -323,7 +318,7 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract ResourceLocator getChild(String name) throws ResourceException;
+	public abstract URL getChild(String name) throws ResourceException;
 
 	/**
 	 * Returns a {@code Resource} representing the child resource, or <code>null</code> if no child
@@ -347,7 +342,7 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract ResourceLocator getParent() throws ResourceException;
+	public abstract URL getParent() throws ResourceException;
 
 	/**
 	 * Returns a {@code Resource} representing the resource parent, or <code>null</code> if this
@@ -465,24 +460,27 @@ public abstract class Resource {
 	/**
 	 * Tests whether this is a directory resource.
 	 * 
-	 * @return <code>true</code> if and only if the resource exists <em>and</em> is a directory;
+	 * @return <code>true</code> if the resource is set as directory resource;
 	 *         <code>false</code> otherwise
 	 * @throws ResourceException
 	 *         when the request can't be performed, e.g. because of missing rights
 	 */
-	public abstract boolean isDirectory() throws ResourceException;
+	public boolean isDirectory() {
+		// either the type is definied, then its the negative value, or its false
+		return (typeDefined)? (!isFile) : false;
+	}
 
 	/**
 	 * Tests whether the resource denoted by this abstract resource location is a normal file. A
 	 * file resource is not a directory resource.
 	 * 
-	 * @return <code>true</code> if and only if the file resource exists <em>and</em> is not a
-	 *         directory resource; <code>false</code> otherwise
+	 * @return <code>true</code> if its set as file resource; <code>false</code> otherwise
 	 * @throws ResourceException
 	 *         when the request can't be performed, e.g. because of missing rights
 	 */
-	public boolean isFile() throws ResourceException {
-		return !isDirectory();
+	public boolean isFile() {
+		// either the type is defined or its false anyway
+		return isFile;
 	}
 
 	/*
@@ -499,7 +497,7 @@ public abstract class Resource {
 	 */
 	@Override
 	public boolean equals(Object obj) {
-		return url.equals(obj);
+		return toURL().equals(obj);
 	}
 
 	/**
@@ -510,15 +508,16 @@ public abstract class Resource {
 	 */
 	@Override
 	public String toString() {
-		return getClass().getName() + "@" + url.toString();
+		return getClass().getName() + "@" + toURL().toString();
 	}
 
 	/**
-	 * Computes a hash code for this Resource based on the ResourceLocator
+	 * Computes a hash code for this Resource based on the URL
 	 * 
 	 * @return the unique hash code
 	 */
+	@Override
 	public int hashCode() {
-		return url.hashCode();
+		return toURL().hashCode();
 	}
 }

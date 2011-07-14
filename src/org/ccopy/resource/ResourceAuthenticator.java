@@ -29,7 +29,8 @@ public class ResourceAuthenticator extends Authenticator {
 	}
 	
     // This method is called when a password-protected URL is accessed
-    public PasswordAuthentication getPasswordAuthentication() {
+    @Override
+	public PasswordAuthentication getPasswordAuthentication() {
         // Get information about the request
         //logger.fine("using: " + username + " & " + passwd);
         // Return the information

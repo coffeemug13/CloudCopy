@@ -21,7 +21,7 @@ public class TestSetup {
 		 * Setup the proxy if needed
 		 */
 		SocketAddress addr = new InetSocketAddress("proxy.sozvers.at", 8080);
-		//HttpMethod.proxy = new Proxy(Type.HTTP, addr);
+		HttpMethod.proxy = new Proxy(Type.HTTP, addr);
 	}
 
 }

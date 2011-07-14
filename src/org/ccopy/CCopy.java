@@ -13,8 +13,6 @@ import java.util.Date;
 
 import javax.sound.midi.SysexMessage;
 
-import org.ccopy.resource.CopyDirectory;
-import org.ccopy.resource.FileResource;
 import org.ccopy.resource.Resource;
 
 /**

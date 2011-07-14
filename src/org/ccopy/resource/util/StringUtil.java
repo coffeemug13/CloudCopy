@@ -67,7 +67,7 @@ public class StringUtil {
 			else
 				i = 1;
 			// now proceed
-			Map.Entry<String, List<String>> e = (Map.Entry<String, List<String>>) mapIterator.next();
+			Map.Entry<String, List<String>> e = mapIterator.next();
 			if (e.getKey() != null) {
 				buf.append("* " + e.getKey() + ": ");
 			} else

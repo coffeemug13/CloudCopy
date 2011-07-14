@@ -30,6 +30,10 @@ import org.junit.Test;
  *
  */
 public class TestS3Resource {
+	private static final String TEST_URL_OBJECT = "https://ccopy.s3.amazonaws.com/tmp.txt";
+	private static final String TEST_URL_OBJECT_UMLAUT = "https://ccopy.s3.amazonaws.com/tmp/file with+andÜ.txt";
+	private static final String TEST_URL_OBJECT_NOT_EXISTS = "https://ccopy.s3.amazonaws.com/tmp-.txt";
+	private static final String TEST_URL_NO_S3SERVICE = "http://www.sun.com/";
 	private static Logger logger = Logger.getLogger("org.ccopy");
 
 	/**
@@ -66,19 +70,6 @@ public class TestS3Resource {
 	 */
 	@After
 	public void tearDown() throws Exception {
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#S3Resource(java.net.URL)}.
-	 */
-	@Test
-	public void testS3ResourceURL() {
-		try {
-			S3RL url = new S3RL(null);
-			S3Resource s3 = new S3Resource(url);
-			fail("Constructor should not except null");
-		} catch (Exception expected) {
-		}
 	}
 
 	/**
@@ -135,7 +126,10 @@ public class TestS3Resource {
 	 */
 	@Test
 	public void testExists() {
-		fail("Not yet implemented"); // TODO
+		S3Resource s3 = new S3Resource(TEST_URL_OBJECT);
+		assertTrue(s3.exists());
+		S3Resource s3 = new S3Resource(TEST_URL_OBJECT_NOT_EXISTS);
+		assertFalse(s3.exists());
 	}
 
 	/**

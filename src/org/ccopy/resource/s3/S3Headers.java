@@ -47,7 +47,8 @@ public enum S3Headers {
     private S3Headers(String method) {
     	this.header=method;
     }
-    public String toString() {return header;}
+    @Override
+	public String toString() {return header;}
     /**
      * Return korrekt S3Headers konverted from String
      * @param key

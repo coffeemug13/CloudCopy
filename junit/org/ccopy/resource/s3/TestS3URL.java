@@ -7,7 +7,7 @@ import java.net.URL;
 
 import org.junit.Test;
 
-public class S3URLTest {
+public class TestS3URL {
 	private static final String TEST_URL_OBJECT = "https://ccopy.s3.amazonaws.com/test.txt";
 	private static final String TEST_URL_OBJECT_UMLAUTE = "https://ccopy.s3.amazonaws.com/test/Mit Ümlaut+Sonderzeichen.txt";
 	/**
@@ -17,14 +17,14 @@ public class S3URLTest {
 	private static final String TEST_URL_S3 = "https://ccopy.s3.amazonaws.com/";
 
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3RL#S3URL(URL)} .
+	 * Test method for {@link org.ccopy.resource.s3.S3URL#S3URL(URL)} .
 	 */
 	@Test
 	public void testS3URLURL() {
 		try {
 			// create S3 object from URL
 			URL url = new URL(TEST_URL_OBJECT);
-			S3RL s3 = new S3RL(url);
+			S3URL s3 = new S3URL(url);
 			assertEquals(TEST_URL_OBJECT, s3.toString());
 		} catch (Exception e) {
 			fail("unexpected exception:\n" + e.toString());
@@ -33,20 +33,20 @@ public class S3URLTest {
 
 	@Test
 	public void testS3URLString() {
-		S3RL s3;
+		S3URL s3;
 
 		try {
-			s3 = new S3RL(TEST_URL_OBJECT);
+			s3 = new S3URL(TEST_URL_OBJECT);
 			assertEquals(TEST_URL_OBJECT, s3.toString());
 			// testing encoding of Umlaute and spaces
-			s3 = new S3RL(TEST_URL_OBJECT_UMLAUTE);
+			s3 = new S3URL(TEST_URL_OBJECT_UMLAUTE);
 			assertEquals(TEST_URL_OBJECT_UMLAUTE, s3.toString());
 			assertEquals(TEST_URL_OBJECT_UMLAUTE_ENCODED,s3.toURL().toString());
 			// create S3 and clean the URL, e.g. remove query, fragment
-			s3 = new S3RL(TEST_URL_OBJECT + "?acl");
+			s3 = new S3URL(TEST_URL_OBJECT + "?acl");
 			assertEquals(TEST_URL_OBJECT, s3.toString());
 			// create S3 and clean the URL, from user info
-			s3 = new S3RL("https://user@ccopy.s3.amazonaws.com/test.txt");
+			s3 = new S3URL("https://user@ccopy.s3.amazonaws.com/test.txt");
 			assertEquals(TEST_URL_OBJECT, s3.toString());
 		} catch (Exception e) {
 			fail("unexpected exception:\n" + e.toString());

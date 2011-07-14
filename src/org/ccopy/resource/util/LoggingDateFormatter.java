@@ -6,7 +6,6 @@ package org.ccopy.resource.util;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-import java.util.TimeZone;
 import java.util.logging.Formatter;
 import java.util.logging.LogRecord;
 
@@ -20,6 +19,7 @@ public class LoggingDateFormatter extends Formatter {
 		super();
 	}
 
+	@Override
 	public String format(LogRecord record) {
 
 		// Zeichenfolgepuffer für formatierten Datensatz erstellen.

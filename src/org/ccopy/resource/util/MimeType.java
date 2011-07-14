@@ -5,8 +5,6 @@ package org.ccopy.resource.util;
 
 import java.net.FileNameMap;
 import java.net.URLConnection;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.DataFormatException;
@@ -100,6 +98,7 @@ public class MimeType {
 	 * 
 	 * @return
 	 */
+	@Override
 	public String toString() {
 		return mimeType;
 	}

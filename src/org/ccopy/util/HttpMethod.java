@@ -17,5 +17,6 @@ public enum HttpMethod {
     String method;
     static public Proxy proxy = null;
     HttpMethod(String method) {this.method=method;}
-    public String toString() {return method;}
+    @Override
+	public String toString() {return method;}
 }

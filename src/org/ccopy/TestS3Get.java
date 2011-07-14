@@ -25,8 +25,6 @@ import java.util.logging.Logger;
 
 import org.ccopy.resource.util.LoggingDateFormatter;
 import org.ccopy.resource.ResourceAuthenticator;
-import org.ccopy.resource.s3.S3;
-import org.ccopy.s3.S3Request;
 
 public class TestS3Get {
 	private static Logger logger = Logger.getLogger("org.ccopy");
@@ -90,7 +88,7 @@ public class TestS3Get {
 				Iterator<Entry<String, List<String>>> mapIterator = mapSet
 						.iterator();
 				while (mapIterator.hasNext()) {
-					Map.Entry<String, List<String>> e = (Map.Entry<String, List<String>>) mapIterator
+					Map.Entry<String, List<String>> e = mapIterator
 							.next();
 					if (e.getKey()!=null) {
 						log += "   " + e.getKey() + ": ";
@@ -108,7 +106,7 @@ public class TestS3Get {
 				mapSet = map.entrySet();
 				mapIterator = mapSet.iterator();
 				while (mapIterator.hasNext()) {
-					Map.Entry<String, List<String>> e = (Map.Entry<String, List<String>>) mapIterator
+					Map.Entry<String, List<String>> e = mapIterator
 							.next();
 					if (e.getKey()!=null) {
 						log += "   " + e.getKey() + ": ";
