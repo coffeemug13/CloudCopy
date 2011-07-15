@@ -5,20 +5,15 @@ package org.ccopy.resource.s3;
 
 import static org.junit.Assert.*;
 
-import java.net.Authenticator;
-import java.net.InetSocketAddress;
-import java.net.Proxy;
-import java.net.SocketAddress;
-import java.net.URL;
-import java.net.Proxy.Type;
+import java.io.OutputStream;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.TestSetup;
 import org.ccopy.resource.util.LoggingDateFormatter;
-import org.ccopy.resource.ResourceAuthenticator;
-import org.ccopy.util.HttpMethod;
+import org.ccopy.resource.util.MimeType;
+import org.ccopy.resource.Resource;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -27,14 +22,8 @@ import org.junit.Test;
 
 /**
  * @author coffeemug13
- *
  */
-public class TestS3Resource {
-	private static final String TEST_URL_OBJECT = "https://ccopy.s3.amazonaws.com/tmp.txt";
-	private static final String TEST_URL_OBJECT_UMLAUT = "https://ccopy.s3.amazonaws.com/tmp/file with+andÜ.txt";
-	private static final String TEST_URL_OBJECT_NOT_EXISTS = "https://ccopy.s3.amazonaws.com/tmp-.txt";
-	private static final String TEST_URL_NO_S3SERVICE = "http://www.sun.com/";
-	private static Logger logger = Logger.getLogger("org.ccopy");
+public class TestS3Resource extends TestS3InitURLs{
 
 	/**
 	 * @throws java.lang.Exception
@@ -71,105 +60,75 @@ public class TestS3Resource {
 	@After
 	public void tearDown() throws Exception {
 	}
-
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}.
+	 * This test simulates typical behavior when crawling directories.
+	 * {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}
 	 */
 	@Test
-	public void testS3ResourceS3ResourceString() {
-		// positive tests
+	public void testS3Resource_Crawling() {
 		try {
-			URL url = new URL("http://bucketname.amazon.s3.com/");
-			S3Resource s3 = new S3Resource(url);
-			S3Resource s3Child = new S3Resource(s3, "child");
-			System.out.println(s3.toURL());
-			System.out.println(s3Child.toURL());
-			assertEquals(s3.toURL()+"/child", s3Child.toURL());
+			/**
+			 * first create the root resource to start the crawling
+			 */
+			// construct the root for a bucket
+			Resource root = new S3Resource("ccopy", null);
+			// check that it exists and connect implicitly
+			if (!root.exists() && root.isDirectory())
+				throw new Exception("wrong root resource");
+			// from here every resource "knows" already that it exists
+			// now get the child's resources
+			Resource[] childs = root.listResources();
+			// do some checks on the resource, this doesn't trigger requests to the service because
+			// status of
+			// the resource is already known (fetched from the service by listResources())
+			if (childs[1].exists() && childs[1].isDirectory())
+				System.out.println("everything is fine");
+			/**
+			 * now add a new child file resource and write something
+			 */
+			// in this case I know already, that this resource doesn't exist
+			Resource child = root.getChildResource("newChild.txt").addMetadata("key", "value")
+					.setContentType(MimeType.fromFileName("newChild.txt"))
+					.setLastModificationTime(System.currentTimeMillis() + 1000);
+			OutputStream out = child.getOutputStream();
+			// write something to the file resource and close afterwards
+			out.close();
+			/**
+			 * now add a new child file resource
+			 */
+			Resource child2 = root.getChildResource("newChild2").addMetadata("key", "value")
+					.createDirectoryResource();
+			// now continue crawling down and get the child's of one child
+			Resource[] childs2 = childs[1].listResources();
 		} catch (Exception e) {
-			fail("unexpected error");
+			fail("unexpected exception: " + e.toString());
 		}
 	}
 	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#getStatus()}.
+	 * Tests simple manipulation of a S3Resource
+	 * {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}
 	 */
 	@Test
-	public void testGetStatus() {
+	public void testS3Resource_Manipulation() {
 		try {
-			S3Resource s3 = new S3Resource(new URL("https://coffeemug13.s3.amazonaws.com/test.txt"));
-			s3.getStatus();
-			assertTrue(s3.exists());
-			assertTrue(s3.getLength() == 49);
+			// first create the resource you believe it should exist
+			Resource r = new S3Resource("ccopy", "/test.txt");
+			// check existence and populate implicit with metadata
+			if (!r.exists())
+				throw new Exception();
+			// now do something with the resource
+			String type = null;
+			if (r.isFile())
+				type = r.getContentType().toString();
+			// now change the resource and persist changes
+			r.setLastModificationTime(System.currentTimeMillis())
+			 .addMetadata("key", "value")
+			 .persistChanges();
+			// cool
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
-			fail("unexpected Exception occured");
-		} 
-	}
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#canRead()}.
-	 */
-	@Test
-	public void testCanRead() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#canWrite()}.
-	 */
-	@Test
-	public void testCanWrite() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#exists()}.
-	 */
-	@Test
-	public void testExists() {
-		S3Resource s3 = new S3Resource(TEST_URL_OBJECT);
-		assertTrue(s3.exists());
-		S3Resource s3 = new S3Resource(TEST_URL_OBJECT_NOT_EXISTS);
-		assertFalse(s3.exists());
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#isDirectory()}.
-	 */
-	@Test
-	public void testIsDirectory() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#toFile()}.
-	 */
-	@Test
-	public void testToFile() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.s3.S3Resource#toURI()}.
-	 */
-	@Test
-	public void testToURI() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.Resource#addMetadata(java.lang.String, java.lang.String)}.
-	 */
-	@Test
-	public void testAddMetadata() {
-		fail("Not yet implemented"); // TODO
-	}
-
-	/**
-	 * Test method for {@link org.ccopy.resource.Resource#getMetadata()}.
-	 */
-	@Test
-	public void testGetMetadata() {
-		fail("Not yet implemented"); // TODO
+			fail("unexpected exception: " + e.toString());
+		}
 	}
 
 }

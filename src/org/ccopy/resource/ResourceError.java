@@ -18,9 +18,13 @@ public class ResourceError extends Error {
 	 */
 	private int errorCode;
 	/**
-	 * Inidicates a problem with the installation or configuration of the JVM
+	 * Indicates a problem with the installation or configuration of the JVM
 	 */
 	public static final int ERROR_JVM = 100;
+	/**
+	 * indicates a general problem which should not occur
+	 */
+	public static final int ERROR = 0;
 	/**
      * Constructs a new error with <code>null</code> as its detail message.
      * The cause is not initialized, and may subsequently be initialized by a

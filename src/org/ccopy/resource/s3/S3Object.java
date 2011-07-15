@@ -31,6 +31,8 @@ public class S3Object {
 	 * the InputStream of the object if it was requested
 	 */
 	protected HttpURLConnection con = null;
+	protected long lastModified;
+	protected int lastModifiedInternaly;
 
 	/**
 	 * Constructor for S3Object
@@ -196,8 +198,8 @@ public class S3Object {
 	static public String putObject(S3URL url, Map<String, String> meta2, MimeType contentType, int contentLength,
 			InputStream in) throws IOException, S3Exception {
 		// perform some checks
-		if (null == in) throw new NullPointerException("InputStream may be null");
-		if (null == url) throw new NullPointerException("URL may be null");
+		if (null == in) throw new NullPointerException("InputStream may not be null");
+		if (null == url) throw new NullPointerException("URL may not be null");
 		if (url.getPath().getBytes().length > 1024) throw new IllegalArgumentException("The path of the URL (= the S3 key) exceeds 1024 Bytes");
 		/**
 		 * Prepare the request
@@ -271,7 +273,77 @@ public class S3Object {
 				out.close();
 		}
 	}
+	/**
+	 * 
+	 * @param fromUrl
+	 * @param toUrl
+	 * @param meta
+	 * @param contentType
+	 * @return
+	 */
+	public static String copyObject(S3URL fromUrl, S3URL toUrl, Map<String, String> meta, MimeType contentType) throws IOException, S3Exception{
+		// perform some checks
+		if ((null == fromUrl) || (null == toUrl)) throw new NullPointerException("URL may be not be null");
+		boolean replace = false;
+		// check whether to make a "REPLACE" call, see S3 documentation
+		if ((null != meta) || (null != contentType)) replace = true;
+		/**
+		 * Prepare the request
+		 */
+		S3Request req = new S3Request(toUrl);
+		// this is a PUT request
+		req.setHttpMethod(HttpMethod.PUT);
+		// you can't set the "Content-Length" attribute via addRequestHeader
+		req.setFixedLengthStreamingMode(0); // we don't stream content, just headers
+		// now set some header attributes if available
+		if (null != meta) {
+			for (Entry<String, String> entry : meta.entrySet()) {
+				req.addRequestHeader(entry.getKey(), entry.getValue());
+			}
+		}
+		req.addRequestHeader("x-amz-copy-source", S3Request.getCanonicalizedResource(fromUrl.toURL()));
+		// init some vars, so you can grab them in exception or finally clause
+		HttpURLConnection con = null;
+		InputStream in = null;
+		// TODO implement
+		/**
+		 * Process the request
+		 */
 
+		try {
+			con = req.getConnection();
+			in = con.getInputStream();
+			// read the InputStream in chunks and write them to S3 OutputStream
+			System.out.println(StringUtil.streamToString(in));
+			// Workaround!!, because in case of a HTTP PUT you MUST check
+			// con.responseCode AFTER the upload otherwise you would implicit
+			// close the connection BEFORE you upload the content which ends in
+			// an HTTP error 400 - EntityTooSmall
+			int res;
+			if ((res = con.getResponseCode()) >= 300) {
+				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
+						StringUtil.streamToString(con.getErrorStream()));
+			}
+			// extract from the response header the versionId
+			String versionId = null;
+			versionId = con.getHeaderField(S3Headers.X_VERSION_ID.toString());
+			// log the last written line to the logger
+			if (logger.isLoggable(Level.FINEST)) {
+				StringBuffer buf = new StringBuffer();
+				buf.append("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
+				logger.finest(buf.toString());
+				logger.fine("Successfully copied/modified object from '" + fromUrl.toString() + "' to '" + toUrl.toString() + "'");
+			}
+			if (logger.isLoggable(Level.FINE))
+				logger.fine("Successfully copied/modified object from '" + fromUrl.toString() + "' to '" + toUrl.toString() + "'");
+			// finish the method
+			return versionId;
+		} finally {
+			// be sure to always close the Input/Outputstreams
+			if (null != in)
+				in.close();
+		}
+	}
 	/**
 	 * This is a convinient method for {@code deleteObjectVersion(url,null)}.
 	 * 
@@ -411,10 +483,7 @@ public class S3Object {
 	 *         modified, or -1 if not known.
 	 */
 	public long getLastModified() {
-		if (null != responseHeader) {
-			return Integer.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED).get(0));
-		} else
-			return -1;
+			return this.lastModified;
 	}
 
 	/**
@@ -455,5 +524,11 @@ public class S3Object {
 	 */
 	public InputStream getInputStream() throws IOException {
 		return con.getInputStream();
+	}
+
+	
+	protected void parseResponseHeaders(Map<String, List<String>> responseHeader) {
+			this.lastModifiedInternaly = Integer.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED).get(0));
+//			this.lastModified = Integer.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED_CUSTOM).get(0));
 	}
 }

@@ -36,7 +36,7 @@ public class MimeType {
 	/**
 	 * Private Constructor of MimeType
 	 */
-	private MimeType(String mimeType) {
+	public MimeType(String mimeType) {
 		this.mimeType = mimeType;
 	}
 

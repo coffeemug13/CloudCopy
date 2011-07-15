@@ -153,11 +153,7 @@ public class S3Request {
 		}
 		
 		// create the canonicalizedResource
-		String host = url.getHost();
-		canonicalizedResource = "/"
-				// TODO clean this line of code to allow other hosts
-				+ host.substring(0, host.indexOf(".s3.amazonaws.com")) 
-				+ url.getPath();
+		canonicalizedResource = getCanonicalizedResource(url);
 		// create the string to sign
 		String stringToSign = httpVerb + "\n" + contentMD5 + "\n" + contentType
 				+ "\n" + date + "\n" + getcanonicalizedAmzHeaders()
@@ -192,6 +188,18 @@ public class S3Request {
 		 * finish the method
 		 */
 		return con;
+	}
+
+	/**
+	 * @param url2
+	 * @return
+	 */
+	protected static String getCanonicalizedResource(URL url) {
+		String host = url.getHost();
+		return "/"
+				// TODO clean this line of code to allow other hosts
+				+ host.substring(0, host.indexOf(".s3.amazonaws.com")) 
+				+ url.getPath();
 	}
 
 	/**

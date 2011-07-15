@@ -1,6 +1,9 @@
 package org.ccopy.resource;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
@@ -9,37 +12,41 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.ccopy.resource.util.MimeType;
+
 /**
  * This class represents a generic Resource. The design of this class is derived from the
  * {@link File} class but differs in the way write operations are done.
  * <p>
- * A resource has to kind of representations: as file or directory. A file resource can have a
- * content but no childs resources. In contrast a directory resource can't have content but may have
- * child resources, either file or directory resources.
+ * Resources are hierarchically organized, like a file system. Therefore a resource can be of type
+ * 'file' or 'directory'. A file resource can have a content and content type but no child
+ * resources. In contrast a directory resource can't have content or content type but may have child
+ * resources, either file or directory resources. But both types may e.g. contain metadata.
+ * <p>
+ * Instantiating a resource by using the constructors of this class <em>DOES NOT</em> define the
+ * type of this resource. Read more at {@link #isDefined}. You have to call the methods
+ * {@link #exists()} or {@link #getInputStream()} to connect the resource with the background
+ * service, i.e. to check whether the resource exists and to populate the resource with metadata
+ * from the background service.
  * <p>
  * Only the following methods of this class guarantee, that modification to properties are finally
  * persisted:
- * <p>
  * <ul>
- * <li>{@code Resource#createFileResource()}
- * <li>{@code Resource#createDirResource()}
- * <li>{@code Resource#persistChanges()}
- * <li>{@code Resource#delete()}
+ * <li>{@link Resource#createFileResource()}
+ * <li>{@link Resource#createDirResource()}
+ * <li>{@link Resource#persistChanges()}
+ * <li>{@link Resource#delete()}
+ * <li>writing to {@link #getOutputStream()}
  * </ul>
  * It can't be guaranteed that this methods are atomic operations because they depend on the API of
  * the background service, where this resource is located. So it could yield to several physical
  * operations depending on the resource implementation.
  * <p>
- * When a resource content get's written with a {@code ResourceOutputStream} the properties of the
+ * When a resource content get's written with a {@link ResourceOutputStream} the properties of the
  * resource are also persisted, so you don't need to call the above methods afterwards. In case the
  * resource doesn't exist it will be created implicitly. Nevertheless it is possible, that an
- * implementation of {@code Resource} like {@code FileResource} decides to perform changes to
+ * implementation of {@code Resource} like {@link FileResource} decides to perform changes to
  * properties immediately.
- * <p>
- * Every other method which set's properties of the resource like {@code Resource#renameTo(URL)}
- * <em>MAY</em> perform immediate actions on the resource but needs a {@code Resource#create()} or
- * {@code Resource#update()} to get persistent (= written to the service). Therefore you
- * <em>MUST</em> call one of the guaranteed persistent methods to ensure that changes are persisted.
  * 
  * @author coffeemug13
  */
@@ -54,15 +61,36 @@ public abstract class Resource {
 	 */
 	protected HashMap<String, String> attributes = null;
 	/**
-	 * The following attributes are flags
+	 * indicates whether the resource exists. <code>null</code> means it is unknown.
 	 */
 	protected Boolean exists = null;
+	/**
+	 * indicates whether the resource is of type 'file'. This flag is only meaningful in combination
+	 * of {@link #exists}.
+	 */
 	protected boolean isFile = false;
-	protected boolean typeDefined = false;
+	/**
+	 * indicates that the type of this resource (file or directory) is defined. This is the case
+	 * when:
+	 * <ul>
+	 * <li>you created this resource by {@link #listResources()}
+	 * <li>by calling {@link #createFileResource()} or {@link #createDirectoryResource()}
+	 * <li>reading bytes from {@link #getInputStream()}
+	 * <li>or successfully written and closed the {@link #getOutputStream()}
+	 * </ul>
+	 * Calling the constructor of this class does not define the type of the resource!
+	 */
+	// TODO think about to merge isDefined and exists
+	protected boolean isDefined = false;
 	protected boolean canRead;
 	protected boolean canWrite;
 	protected String md5Hash = null;
 	protected long lastModified;
+	protected MimeType contentType = null;
+	/**
+	 * indicates that the resource has been altered after constructions or creation
+	 */
+	protected boolean isModified = false;
 	/**
 	 * The logger for the class
 	 */
@@ -78,6 +106,14 @@ public abstract class Resource {
 	 * Constructors
 	 * ############################################################
 	 */
+	/**
+	 * Default Constructor of {@code Resource}. The implementing class must take care, that the url
+	 * get's defined
+	 */
+	protected Resource() {
+		// do nothing
+	}
+
 	/**
 	 * Constructor of {@code Resource} based on a {@link URL}.
 	 * 
@@ -112,7 +148,7 @@ public abstract class Resource {
 	protected Resource(Resource parent, String child) throws MalformedURLException {
 		if ((child == null) || (parent == null))
 			throw new NullPointerException("both arguments must not be null");
-		if (parent.isDirectory() || )
+		if (parent.isDirectory())
 			throw new IllegalArgumentException("parent resource must be an directory");
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("Resource creating for '" + parent.toString() + "' + '" + child + "'");
@@ -130,7 +166,8 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract void createFileResource() throws ResourceException;
+	// TODO check that path of S3URL DOES end with "/" -> otherwise append
+	public abstract Resource createFileResource() throws ResourceException;
 
 	/**
 	 * Creates a directory resource. This is a guaranteed persistent operation. All prior
@@ -139,16 +176,19 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract void createDirectoryResource() throws ResourceException;
+	// TODO can't create root resource == root directory -> throw IllegalArgumentException
+	// TODO check that path of S3URL doesn't end with "/" -> otherwise cutoff recursive; ATTENTION:
+	// consider that "/" could be encoded!!
+	public abstract Resource createDirectoryResource() throws ResourceException;
 
 	/**
-	 * Updates the properties of this resource. This is a guaranteed persistent operation. All prior
-	 * modifications of this resource properties are also persisted.
+	 * All modifications to the resource properties are persisted. This is a guaranteed persistent operation. 
 	 * 
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IllegalStateException when the type of the resource is not defined; see also {@link #isDefined}
 	 */
-	public abstract void persistChanges() throws ResourceException;
+	public abstract Resource persistChanges() throws ResourceException;
 
 	/**
 	 * Deletes the Resource denoted by this abstract pathname. If this pathname denotes a directory
@@ -204,10 +244,11 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public void addMetadata(String key, String value) throws ResourceException {
-		if (key != null)
+	public Resource addMetadata(String key, String value) throws ResourceException {
+		if (key != null) {
 			attributes.put(key, value);
-		else
+			return this;
+		} else
 			throw new NullPointerException("Key MUST NOT be null");
 	}
 
@@ -220,10 +261,10 @@ public abstract class Resource {
 	 * change get's persisted.
 	 * 
 	 * @param dest
-	 *        - the locator of the resource.
-	 * @return {@code true} if and only if the renaming succeeded; {@code false} otherwise
+	 *        - the new locator of the resource.
+	 * @return {@code Resource} if the new URL is valid; {@code null} otherwise
 	 */
-	public abstract boolean renameTo(URL dest) throws ResourceException;
+	public abstract Resource renameTo(URL dest) throws ResourceException;
 
 	/**
 	 * Sets the last-modified time of the resource.
@@ -233,15 +274,48 @@ public abstract class Resource {
 	 * change get's persisted.
 	 * 
 	 * @param last
-	 * @return
+	 * @return this resource if successful
 	 */
-	public abstract boolean setLastModificationTime(long last);
+	public abstract Resource setLastModificationTime(long last);
+
+	/**
+	 * Set the content type for this resource. In case this resource is not already created, the
+	 * type of the resource will be set to "directory", that means the resource URL will be cleaned
+	 * and {@code Resource#isDirectory()} will return <code>true</code>
+	 * 
+	 * @param mimeType
+	 * @return
+	 * @throw IllegalStateException when this is a directory resource
+	 */
+	public Resource setContentType(MimeType mimeType) {
+		this.isModified = true;
+		if (this.isDefined) {
+			if (!this.isFile)
+				throw new IllegalStateException("Cant't set content type for directory resource");
+		} else {
+			this.isDefined = true;
+			this.isFile = true;
+		}
+		this.contentType = mimeType;
+		return this;
+	}
 
 	/*
 	 * ############################################################ 
 	 * retrieve infos about the resource
 	 * ############################################################
 	 */
+	/**
+	 * Returns the content type of the resource.
+	 * <p>
+	 * In case the resource is not created, e.g. {@code Resource#createFileResource()}
+	 * 
+	 * @return the content type if known otherwise <code>null</code>
+	 */
+	public MimeType getContentType() {
+		return this.contentType;
+	}
+
 	/**
 	 * Returns the value for a metadata key.
 	 * <p>
@@ -375,6 +449,13 @@ public abstract class Resource {
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
 	public abstract long length() throws ResourceException;
+	/**
+	 * Returns the MD5 hash of the file if known
+	 * @return
+	 */
+	public String getMD5Hash() {
+		return this.md5Hash;
+	}
 
 	/**
 	 * Returns an array of resources which are childs of this resource.
@@ -410,8 +491,11 @@ public abstract class Resource {
 	 * @return ResourceOutPutStream
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException
 	 */
-	public abstract ResourceOutputStream getOutputStream() throws ResourceException;
+	// TODO check that this resource is a file resource otherwise throw IllegalStateException
+	// TODO set the type of the resource to file if not already done
+	public abstract OutputStream getOutputStream() throws ResourceException, IOException;
 
 	/**
 	 * Returns the input stream for this resource to read the file resource content
@@ -419,8 +503,10 @@ public abstract class Resource {
 	 * @return ResourceOutPutStream
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException
 	 */
-	public abstract ResourceInputStream getInputStream() throws ResourceException;
+	// TODO set the type of the resource to file if not already done
+	public abstract InputStream getInputStream() throws ResourceException, IOException;
 
 	/*
 	 * ############################################################ 
@@ -449,37 +535,39 @@ public abstract class Resource {
 
 	/**
 	 * Tests whether the file or directory denoted by this abstract resource location really exists.
-	 * 
+	 * This method will trigger requests to the background service if the type of the resource is not yet defined.
+	 * @see #isDefined
 	 * @return <code>true</code> if and only if the file or directory denoted by this abstract
 	 *         pathname exists; <code>false</code> otherwise
 	 * @throws ResourceException
 	 *         when the request can't be performed, e.g. because of missing rights
+	 * @throws IOException
+	 * @throws SecurityException
 	 */
-	public abstract boolean exists() throws ResourceException;
+	public abstract boolean exists() throws ResourceException, SecurityException, IOException;
 
 	/**
 	 * Tests whether this is a directory resource.
 	 * 
-	 * @return <code>true</code> if the resource is set as directory resource;
-	 *         <code>false</code> otherwise
-	 * @throws ResourceException
-	 *         when the request can't be performed, e.g. because of missing rights
+	 * @return <code>true</code> if the resource is a directory resource; <code>false</code>
+	 *         otherwise
+	 * @throws IllegalStateException
+	 *         when the type is not yet defined (see {@link #isDefined})
 	 */
 	public boolean isDirectory() {
-		// either the type is definied, then its the negative value, or its false
-		return (typeDefined)? (!isFile) : false;
+		return !isFile();
 	}
 
 	/**
-	 * Tests whether the resource denoted by this abstract resource location is a normal file. A
-	 * file resource is not a directory resource.
+	 * Tests whether this is a file resource.
 	 * 
-	 * @return <code>true</code> if its set as file resource; <code>false</code> otherwise
-	 * @throws ResourceException
-	 *         when the request can't be performed, e.g. because of missing rights
+	 * @return <code>true</code> if the resource is a file resource; <code>false</code> otherwise
+	 * @throws IllegalStateException
+	 *         when the type is not yet defined (see {@link #isDefined})
 	 */
 	public boolean isFile() {
-		// either the type is defined or its false anyway
+		if (!isDefined)
+			throw new IllegalStateException("type of resource not yet definied!");
 		return isFile;
 	}
 
