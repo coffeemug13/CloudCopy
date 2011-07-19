@@ -166,7 +166,7 @@ public class S3URL {
 				// remove the trailing, octet encoded "/" from the path and rebuild the URL
 				this.url = new URL(url.getProtocol(), url.getHost(), this.url.getPath().substring(
 						0, this.url.getPath().length() - 3));
-			}
+			} // else do nothing
 		} catch (MalformedURLException e) {
 			throw new ResourceError(ResourceError.ERROR,
 					"uups, this should never happens! Just added '%2F' to the URL path", e);

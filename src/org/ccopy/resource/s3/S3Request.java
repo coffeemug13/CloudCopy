@@ -51,6 +51,7 @@ public class S3Request {
 	protected List<String> headers = new ArrayList<String>();
 	protected HttpURLConnection con = null;
 	private int fixedStreamLength;
+	protected int responseCode = -1;
 
 	static protected SimpleDateFormat df = new SimpleDateFormat(
 			"EEE, d MMM yyyy HH:mm:ss Z", Locale.ENGLISH);
@@ -181,9 +182,14 @@ public class S3Request {
 		 * Check the HTTP status code of the connection for errors
 		 */
 		int res;
-		if ((httpVerb != HttpMethod.PUT) && (res = con.getResponseCode()) >= 300) {
+		if (httpVerb != HttpMethod.PUT) { 
+			if ((res = con.getResponseCode()) >= 300)
+				// throw an exception for S3 errors
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(), StringUtil.streamToString(con.getErrorStream()));
-		}
+//			else if ((res = con.getResponseCode()) >= 200)
+//				// set the response code
+//				this.responseCode = con.getResponseCode();
+		} 
 		/**
 		 * finish the method
 		 */

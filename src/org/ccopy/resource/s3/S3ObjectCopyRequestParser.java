@@ -14,13 +14,17 @@ import javax.xml.namespace.QName;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
+import org.ccopy.resource.ResourceError;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
 
 /**
- * {@code} <CopyObjectResult> <LastModified>2009-10-28T22:32:00</LastModified>
- * <ETag>"9b2cf535f27731c974343645a3985328"</ETag> </CopyObjectResult> }
+ * {@code} 
+ * <CopyObjectResult> 
+ * 		<LastModified>2009-10-28T22:32:00</LastModified>
+ * 		<ETag>"9b2cf535f27731c974343645a3985328"</ETag> 
+ * </CopyObjectResult> }
  * 
  * @author mholakovsky
  */
@@ -28,7 +32,8 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 	private static final String LAST_MODIFIED = "LastModified";
 	private static final String ETAG = "ETag";
 	private static final String COPY_OBJECT_RESULT = "CopyObjectResult";
-	protected S3Resource object;
+	protected long lastModified = -1L;
+	protected String eTag = null;
 	private String tmpValue;
 	private boolean rootElementFound = false;
 	static protected SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",
@@ -37,9 +42,8 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 	/**
 	 * Constructs the Copy Request Parser
 	 */
-	protected S3ObjectCopyRequestParser(InputStream in, S3Resource object) {
+	protected S3ObjectCopyRequestParser(InputStream in) {
 		super();
-		this.object = object;
 		// Use the default (non-validating) parser
 		SAXParserFactory factory = SAXParserFactory.newInstance();
 		try {
@@ -47,7 +51,7 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 			SAXParser saxParser = factory.newSAXParser();
 			saxParser.parse(in, this);
 		} catch (Throwable t) {
-			t.printStackTrace();
+			throw new ResourceError("the response content for the S3 copy request couldn't be parsed",t);
 		}
 	}
 
@@ -78,7 +82,7 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 				throw new SAXException("no root element 'CopyObjectResult' found");
 			// now parse the time string into a long
 			try {
-				object.lastModified = df.parse(this.tmpValue).getTime();
+				this.lastModified = df.parse(this.tmpValue).getTime();
 			} catch (ParseException e) {
 				throw new SAXException("error while converting the last modified timestamp", e);
 			}
@@ -89,7 +93,7 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 			if (!this.rootElementFound)
 				throw new SAXException("no root element 'CopyObjectResult' found");
 			// now set the ETag attribute
-			object.setETag(this.tmpValue.substring(1, this.tmpValue.length() - 1));
+			this.eTag = this.tmpValue.substring(1, this.tmpValue.length() - 1);
 		}
 	}
 

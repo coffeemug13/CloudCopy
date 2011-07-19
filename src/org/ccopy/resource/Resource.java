@@ -13,6 +13,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.resource.util.MimeType;
+import org.omg.CORBA.SystemException;
 
 /**
  * This class represents a generic Resource. The design of this class is derived from the
@@ -57,18 +58,22 @@ public abstract class Resource {
 	 */
 	public static String SEPERATOR;
 	/**
+	 * Tests whether this Resource supports reading and writing of custom metadata.
+	 */
+	public static boolean SUPPORTS_METADATA;
+	/**
+	 * Tests whether this Resource supports to set the lastModified timestamp manually.
+	 */
+	public static boolean SUPPORTS_SET_LASTMODIFIED;
+	/**
 	 * The metadata of this resource
 	 */
 	protected HashMap<String, String> attributes = null;
 	/**
-	 * indicates whether the resource exists. <code>null</code> means it is unknown.
+	 * indicates whether the resource exists (<code>true</code>) oder not (<code>false</code>).
+	 * <code>null</code> means it is unknown.
 	 */
 	protected Boolean exists = null;
-	/**
-	 * indicates whether the resource is of type 'file'. This flag is only meaningful in combination
-	 * of {@link #exists}.
-	 */
-	protected boolean isFile = false;
 	/**
 	 * indicates that the type of this resource (file or directory) is defined. This is the case
 	 * when:
@@ -77,29 +82,40 @@ public abstract class Resource {
 	 * <li>by calling {@link #createFileResource()} or {@link #createDirectoryResource()}
 	 * <li>reading bytes from {@link #getInputStream()}
 	 * <li>or successfully written and closed the {@link #getOutputStream()}
+	 * <li>set the {@link #setContentType(MimeType)}
 	 * </ul>
 	 * Calling the constructor of this class does not define the type of the resource!
+	 * <p>
+	 * There is a subtle difference between {@link #exists} and {@code #isDefined}: if a resource
+	 * exists it is also defined but if a resource is defined it doesn't need to exist yet.
 	 */
-	// TODO think about to merge isDefined and exists
-	protected boolean isDefined = false;
+	protected boolean isDefined;
+	/**
+	 * indicates whether the resource is of type 'file'. This flag is only meaningful in combination
+	 * of {@link #exists}.
+	 */
+	protected boolean isFile;
+
 	protected boolean canRead;
 	protected boolean canWrite;
-	protected String md5Hash = null;
+	protected String md5Hash;
+	protected long size;
+	/**
+	 * Date and time the object was last modified or "-1L" when undefined
+	 * 
+	 * @see System#currentTimeMillis()
+	 */
 	protected long lastModified;
-	protected MimeType contentType = null;
+
+	protected MimeType contentType;
 	/**
 	 * indicates that the resource has been altered after constructions or creation
 	 */
-	protected boolean isModified = false;
+	protected boolean isModified;
 	/**
 	 * The logger for the class
 	 */
 	private static Logger logger = Logger.getLogger("org.ccopy");
-	/**
-	 * Tests whether this Resource supports reading and writing of custom metadata. A
-	 * {@code FileResource} doesn't support custom metadata but a {@code S3Resource}
-	 */
-	public static boolean SUPPORTS_METADATA;
 
 	/*
 	 * ############################################################ 
@@ -129,6 +145,8 @@ public abstract class Resource {
 			throw new NullPointerException("Argument must not be null");
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("Resource creating for '" + url.toString() + "'");
+		// reset the properties to their inital value
+		reset();
 	}
 
 	/**
@@ -152,6 +170,24 @@ public abstract class Resource {
 			throw new IllegalArgumentException("parent resource must be an directory");
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("Resource creating for '" + parent.toString() + "' + '" + child + "'");
+		// reset the properties to their inital value
+		reset();
+	}
+
+	/**
+	 * Reset the properties of the resource to their inital values
+	 */
+	protected void reset() {
+		System.out.println("reset from resouce");
+		this.isDefined = false;
+		this.isFile = false;
+		this.isModified = false;
+		this.canRead = false;
+		this.canWrite = false;
+		this.exists = true;
+		this.lastModified = -1L;
+		this.md5Hash = null;
+		this.size = -1;
 	}
 
 	/*
@@ -160,35 +196,42 @@ public abstract class Resource {
 	 * ############################################################
 	 */
 	/**
-	 * Creates a file resource. This is a guaranteed persistent operation. All prior modifications
-	 * of this resource properties are also persisted.
+	 * Creates a file resource according to the specification of the service implementation. This
+	 * mean typically, that the path of the resource doesn't end with a "/"
+	 * <p>
+	 * This is a guaranteed persistent operation. All prior modifications of this resource
+	 * properties are also persisted.
 	 * 
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	// TODO check that path of S3URL DOES end with "/" -> otherwise append
 	public abstract Resource createFileResource() throws ResourceException;
 
 	/**
-	 * Creates a directory resource. This is a guaranteed persistent operation. All prior
-	 * modifications of this resource properties are also persisted.
+	 * Creates a directory resource according to the specification of the service implementation.
+	 * This mean typically, that the path of the resource must end with a "/"
+	 * <p>
+	 * This is a guaranteed persistent operation. All prior modifications of this resource
+	 * properties are also persisted.
 	 * 
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IllegalArgumentException
+	 *         when you try to create a root directory
 	 */
-	// TODO can't create root resource == root directory -> throw IllegalArgumentException
-	// TODO check that path of S3URL doesn't end with "/" -> otherwise cutoff recursive; ATTENTION:
-	// consider that "/" could be encoded!!
 	public abstract Resource createDirectoryResource() throws ResourceException;
 
 	/**
-	 * All modifications to the resource properties are persisted. This is a guaranteed persistent operation. 
+	 * All modifications to the resource properties are persisted. This is a guaranteed persistent
+	 * operation.
 	 * 
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
-	 * @throws IllegalStateException when the type of the resource is not defined; see also {@link #isDefined}
+	 * @throws IOException 
+	 * @throws IllegalStateException
+	 *         when the type of the resource is not defined; see also {@link #isDefined}
 	 */
-	public abstract Resource persistChanges() throws ResourceException;
+	public abstract Resource persistChanges() throws ResourceException, IOException;
 
 	/**
 	 * Deletes the Resource denoted by this abstract pathname. If this pathname denotes a directory
@@ -200,8 +243,9 @@ public abstract class Resource {
 	 * @return
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException
 	 */
-	public abstract boolean delete() throws ResourceException;
+	public abstract boolean delete() throws ResourceException, IOException;
 
 	/*
 	 * ############################################################ 
@@ -263,6 +307,10 @@ public abstract class Resource {
 	 * @param dest
 	 *        - the new locator of the resource.
 	 * @return {@code Resource} if the new URL is valid; {@code null} otherwise
+	 * @throws NullPointerException
+	 *         when argument is <code>null</code>
+	 * @throws IllegalStateException
+	 *         when changing the type of the resource (file or directory) after it has been created
 	 */
 	public abstract Resource renameTo(URL dest) throws ResourceException;
 
@@ -273,10 +321,27 @@ public abstract class Resource {
 	 * methods or write with an {@code ResourceOutputStream} to the resource to ensure that this
 	 * change get's persisted.
 	 * 
-	 * @param last
+	 * @see #SUPPORTS_SET_LASTMODIFIED
+	 * @see System#currentTimeMillis()
+	 * @param timestamp
+	 *        in milliseconds or "-1L" when you want to unset
 	 * @return this resource if successful
+	 * @throws IllegalStateException
+	 *         when resource doesn't support setting the lastModified time.
+	 * @throws IllegalArgumentException
+	 *         when argument {@code < -1}
 	 */
-	public abstract Resource setLastModificationTime(long last);
+	public Resource setLastModificationTime(long timestamp) {
+		if (!SUPPORTS_SET_LASTMODIFIED)
+			throw new IllegalStateException(
+					"setting lastModified is not supported for this resource");
+		if (timestamp < -1L)
+			throw new IllegalArgumentException("argument must be greater or equal then -1");
+		this.isModified = true;
+		this.lastModified = timestamp;
+		return this;
+
+	}
 
 	/**
 	 * Set the content type for this resource. In case this resource is not already created, the
@@ -437,6 +502,7 @@ public abstract class Resource {
 	 *         if the file does not exist or if an I/O error occurs
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @see System#currentTimeMillis()
 	 */
 	public abstract long lastModified() throws ResourceException;
 
@@ -449,8 +515,10 @@ public abstract class Resource {
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
 	public abstract long length() throws ResourceException;
+
 	/**
 	 * Returns the MD5 hash of the file if known
+	 * 
 	 * @return
 	 */
 	public String getMD5Hash() {
@@ -486,26 +554,27 @@ public abstract class Resource {
 	public abstract String getName();
 
 	/**
-	 * Returns the output stream for this resource to write the file resource resource
+	 * Returns the output stream for this resource to write the file resource resource. This method
+	 * defines the type of the resource to be a file if not yet set.
 	 * 
 	 * @return ResourceOutPutStream
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 * @throws IOException
+	 * @throws IllegalStateException
+	 *         when you try to get the OutputStream from a directory
 	 */
-	// TODO check that this resource is a file resource otherwise throw IllegalStateException
-	// TODO set the type of the resource to file if not already done
 	public abstract OutputStream getOutputStream() throws ResourceException, IOException;
 
 	/**
-	 * Returns the input stream for this resource to read the file resource content
+	 * Returns the input stream for this resource to read the file resource content. This method
+	 * defines the type of the resource to be a file if not yet set.
 	 * 
 	 * @return ResourceOutPutStream
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 * @throws IOException
 	 */
-	// TODO set the type of the resource to file if not already done
 	public abstract InputStream getInputStream() throws ResourceException, IOException;
 
 	/*
@@ -535,7 +604,9 @@ public abstract class Resource {
 
 	/**
 	 * Tests whether the file or directory denoted by this abstract resource location really exists.
-	 * This method will trigger requests to the background service if the type of the resource is not yet defined.
+	 * This method will trigger requests to the background service if the type of the resource is
+	 * not yet defined.
+	 * 
 	 * @see #isDefined
 	 * @return <code>true</code> if and only if the file or directory denoted by this abstract
 	 *         pathname exists; <code>false</code> otherwise

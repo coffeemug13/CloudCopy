@@ -1,5 +1,6 @@
 package org.ccopy.resource.s3;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -27,6 +28,10 @@ import org.ccopy.util.HttpMethod;
  * @author coffeemug13
  */
 public class S3Resource extends Resource {
+	// define some flags of the parent class
+	public static final String SEPERATOR = "/";
+	public static final boolean SUPPORTS_METADATA = true;
+	public static final boolean SUPPORTS_SET_LASTMODIFIED = false;
 	/**
 	 * The region of the S3 bucket for this resource
 	 */
@@ -35,18 +40,12 @@ public class S3Resource extends Resource {
 	 * The name of the bucket
 	 */
 	protected String bucketName = null;
-	// TODO think about lastModified and how to set attribute over package bounderies
-	protected long lastModified;
 	/**
 	 * the proper encoded S3 URL of this resource
 	 */
 	protected S3URL s3URL;
 	protected S3Object s3Object;
-	private long length;
-	/**
-	 * The pathname separator for S3 pathnames
-	 */
-	public static final String SEPERATOR = "/";
+	private String versionId;
 
 	/**
 	 * Construct a Resource based on a {@code ResourceLocator}.
@@ -59,6 +58,7 @@ public class S3Resource extends Resource {
 	public S3Resource(URL url) throws MalformedURLException {
 		super(url);
 		this.s3URL = new S3URL(url);
+		this.reset();
 	}
 
 	/**
@@ -74,6 +74,7 @@ public class S3Resource extends Resource {
 	public S3Resource(S3Resource s3, String child) throws MalformedURLException {
 		super(s3, child);
 		this.s3URL = new S3URL(s3, child);
+		this.reset();
 	}
 
 	/**
@@ -89,15 +90,19 @@ public class S3Resource extends Resource {
 	 */
 	public S3Resource(String bucket, String key) throws MalformedURLException {
 		this.s3URL = S3URL.fromPath(bucket, key);
+		this.reset();
 	}
 
 	/**
-	 * Get the status of the S3 resource (exists, isDirectory, isReadable, etc.
+	 * Get the status of the S3 resource from S3(exists, isDirectory, isReadable, etc.
+	 * <p>
+	 * ATTENTION: this initiates a HEAD request to S3
 	 * 
 	 * @throws ResourceException
 	 * @throws IOException
 	 */
 	protected void getStatus() throws SecurityException, IOException, ResourceException {
+		this.reset();
 		try {
 			this.s3Object = S3Object.getHeadObject(this.s3URL, null);
 			this.isDefined = true;
@@ -105,8 +110,24 @@ public class S3Resource extends Resource {
 			this.isFile = this.s3URL.isFile;
 			this.contentType = new MimeType(this.s3Object.getContentType());
 		} catch (S3Exception e) {
-			throw new ResourceException(e);
+			if (e.getErrorCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+				// object not found is not an exception for getStatus but an valid information
+				this.isDefined = false;
+				this.exists = false;
+			} else
+				// everything else in en exception
+				throw new ResourceException(e);
 		}
+	}
+
+	/**
+	 * Reset the resource to an "new" status
+	 */
+	protected void reset() {
+		super.reset();
+		this.s3Object = null;
+		this.s3URL = null;
+		System.out.println("reset from s3resouce");
 	}
 
 	@Override
@@ -123,12 +144,19 @@ public class S3Resource extends Resource {
 	 * Delete the S3 Resource
 	 */
 	@Override
-	public boolean delete() throws ResourceException {
-		// TODO implement delete in S3 the file
-		this.isModified = false;
-		// TODO implement
-		this.isDefined = true;
-		this.exists = Boolean.FALSE;
+	public boolean delete() throws ResourceException, IOException {
+		String versionId;
+		try {
+			versionId = S3Object.deleteObject(s3URL);
+		} catch (S3Exception e) {
+			if (e.getErrorCode()==HttpURLConnection.HTTP_NOT_FOUND)
+				throw new FileNotFoundException("file not found" + e.toString());
+			else 
+				throw new ResourceException("error while deleting",e);
+		}
+		this.reset();
+		this.exists = Boolean.FALSE; // we are sure now, that it don't exist
+		this.versionId = versionId;
 		return false;
 	}
 
@@ -147,16 +175,25 @@ public class S3Resource extends Resource {
 	@Override
 	public InputStream getInputStream() throws IOException, ResourceException {
 		this.s3URL.encodeAsFile();
-		// TODO implement
-		return null;
+		try {
+			this.s3Object = S3Object.getObject(this.s3URL, this.versionId);
+		} catch (S3Exception e) {
+			if (e.getErrorCode()==HttpURLConnection.HTTP_NOT_FOUND)
+				throw new FileNotFoundException("file not found" + e.toString());
+			else 
+				throw new ResourceException("error while getting resource",e);
+		}
+		this.exists = true;
+		this.isModified = false;
+		return s3Object.getInputStream();
 	}
 
 	@Override
 	public OutputStream getOutputStream() throws IOException, ResourceException {
-		this.isModified = false;
 		this.s3URL.encodeAsFile();
 		// TODO implement
-		return null;
+		this.isModified = false;
+		return s3Object.getOutputStream();
 	}
 
 	@Override
@@ -166,14 +203,14 @@ public class S3Resource extends Resource {
 
 	@Override
 	public long length() {
-		return this.length;
+		return this.size;
 	}
 
 	@Override
 	public Resource[] listResources() throws ResourceException {
 		if (!this.isDirectory())
 			throw new IllegalStateException("a file resource can't have child resources");
-		// TODO fetch the sub resources for this S3 resource by creating correct
+		// TODO fetch the sub resources for this S3 resource by creating correct request
 		return new Resource[0];
 	}
 
@@ -226,14 +263,22 @@ public class S3Resource extends Resource {
 	}
 
 	@Override
-	public S3Resource persistChanges() throws ResourceException {
+	public S3Resource persistChanges() throws ResourceException, IOException {
 		// check if already created
 		if (!isDefined)
 			throw new IllegalStateException(
-					"you must create the file before you can persist changes");
-		// reset modification flag
-		this.isModified = false;
-		// TODO implement the rest
+					"you must create the file or check whether it exists before you can persist changes");
+		try {
+			// make a copy of the object to itself
+			this.versionId = S3Object.copyObject(this.s3URL, this.s3URL, this.attributes, contentType);
+			// reset modification flag
+			this.isModified = false;
+		} catch (S3Exception e) {
+			if (e.getErrorCode()==HttpURLConnection.HTTP_NOT_FOUND)
+				throw new FileNotFoundException("file not found" + e.toString());
+			else 
+				throw new ResourceException("error while copying the resource to itself: ",e);
+		}
 		return null;
 	}
 
@@ -256,12 +301,6 @@ public class S3Resource extends Resource {
 		return null;
 	}
 
-	@Override
-	public S3Resource setLastModificationTime(long last) {
-		this.isModified = true;
-		this.lastModified = last;
-		return this;
-	}
 
 	@Override
 	public URL toURL() {

@@ -117,9 +117,9 @@ public class TestS3Object extends TestS3InitURLs {
 		try {
 			Map<String, String> meta = new HashMap<String, String>();
 			meta.put(S3Headers.X_AMZ_META.toString() + "custom", "attribute");
-			String versionId = S3Object.putObject(new S3URL(TMP_URL), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+			S3Response res = S3Object.putObject(new S3URL(TMP_URL), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 					TEST_STRING_LENGTH, new FileInputStream(file));
-			versionId = S3Object.putObject(new S3URL(TMP_URL_WITH_UMLAUT), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+			res = S3Object.putObject(new S3URL(TMP_URL_WITH_UMLAUT), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 					TEST_STRING_LENGTH, new FileInputStream(file));
 		} catch (Exception e) {
 			fail(e.toString());
@@ -143,24 +143,25 @@ public class TestS3Object extends TestS3InitURLs {
 			fail("Error while writing the tempfile");
 		}
 		try {
+			S3Response res= null;
 			// put a S3 object with a key >1024 Byte
 			try {
 				String s = "ThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongK";
-				String versionId = S3Object.putObject(new S3URL(TEST_URL_S3 + s + "1"), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(new S3URL(TEST_URL_S3 + s + "1"), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 						TEST_STRING_LENGTH, new FileInputStream(file));
 				fail("URL with to long key not catched");
 			} catch (IllegalArgumentException e) { /* that is the expected Exception	*/ }
 			
 			// put a S3 object but don't provide a InputStream
 			try {
-				String versionId = S3Object.putObject(new S3URL(TMP_URL), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(new S3URL(TMP_URL), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 						TEST_STRING_LENGTH, null);
 				fail("missing InputStream not catched");
 			} catch (NullPointerException e) { /* that is the expected Exception	*/ }
 			
 			// put a S3 object but don't provide a URL
 			try {
-				String versionId = S3Object.putObject(null, null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(null, null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 						TEST_STRING_LENGTH, new FileInputStream(file));
 				fail("missing InputStream not catched");
 			} catch (NullPointerException e) { /* that is the expected Exception	*/ }
@@ -226,12 +227,12 @@ public class TestS3Object extends TestS3InitURLs {
 			// connect to the S3 object
 			S3Object obj = S3Object.getObject(new S3URL(TMP_URL), null);
 			// now check the metadata
-			assertTrue(obj.exists());
-			assertTrue(obj.canRead());
-			assertTrue(TEST_STRING_LENGTH == obj.getContentLength());
-			assertEquals(TEST_STRING_MD5, obj.getETag());
+			assertTrue("object exists",obj.exists());
+			assertTrue("object can be read",obj.canRead());
+			assertTrue("test content lenght",TEST_STRING_LENGTH == obj.getContentLength());
+			assertEquals("check md5hash",TEST_STRING_MD5, obj.getETag());
 			// then compare the content of the object
-			assertEquals(TEST_STRING, StringUtil.streamToString(obj.getInputStream()));
+			assertEquals("compare content",TEST_STRING, StringUtil.streamToString(obj.getInputStream()));
 		} catch (Exception e) {
 			fail(e.toString());
 		}
@@ -245,8 +246,8 @@ public class TestS3Object extends TestS3InitURLs {
 	@Test
 	public void testDeleteObject() {
 		try {
-			String versionId = S3Object.deleteObject(new S3URL(TMP_URL));
-			versionId = S3Object.deleteObject(new S3URL(TMP_URL_WITH_UMLAUT));
+			S3Response res = S3Object.deleteObject(new S3URL(TMP_URL));
+			res = S3Object.deleteObject(new S3URL(TMP_URL_WITH_UMLAUT));
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail("Unexpected Exception occured" + e.toString());
