@@ -89,8 +89,8 @@ public class S3Resource extends Resource {
 	 *         when bucket is <code>null</code>
 	 */
 	public S3Resource(String bucket, String key) throws MalformedURLException {
-		this.s3URL = S3URL.fromPath(bucket, key);
 		this.reset();
+		this.s3URL = S3URL.fromPath(bucket, key);
 	}
 
 	/**
@@ -121,13 +121,12 @@ public class S3Resource extends Resource {
 	}
 
 	/**
-	 * Reset the resource to an "new" status
+	 * Reset the resource to an "new" status. The {@link #s3URL} is not reset, because it defines a S3Resource
 	 */
 	protected void reset() {
 		super.reset();
 		this.s3Object = null;
-		this.s3URL = null;
-		System.out.println("reset from s3resouce");
+//		this.s3URL = null;
 	}
 
 	@Override
@@ -145,15 +144,17 @@ public class S3Resource extends Resource {
 	 */
 	@Override
 	public boolean delete() throws ResourceException, IOException {
-		String versionId;
+		S3Response res;
 		try {
-			versionId = S3Object.deleteObject(s3URL);
+			res = S3Object.deleteObject(s3URL);
 		} catch (S3Exception e) {
 			if (e.getErrorCode()==HttpURLConnection.HTTP_NOT_FOUND)
 				throw new FileNotFoundException("file not found" + e.toString());
 			else 
 				throw new ResourceException("error while deleting",e);
 		}
+		if (res.getReturnCode() != HttpURLConnection.HTTP_NO_CONTENT)
+			throw new ResourceException("something went wrong when deleting the file: " + res.toString());
 		this.reset();
 		this.exists = Boolean.FALSE; // we are sure now, that it don't exist
 		this.versionId = versionId;
@@ -268,17 +269,16 @@ public class S3Resource extends Resource {
 		if (!isDefined)
 			throw new IllegalStateException(
 					"you must create the file or check whether it exists before you can persist changes");
-		try {
+//		try {
 			// make a copy of the object to itself
-			this.versionId = S3Object.copyObject(this.s3URL, this.s3URL, this.attributes, contentType);
+			S3Response response = S3Object.copyObject(this.s3URL, this.s3URL, this.attributes, contentType);
 			// reset modification flag
 			this.isModified = false;
-		} catch (S3Exception e) {
-			if (e.getErrorCode()==HttpURLConnection.HTTP_NOT_FOUND)
-				throw new FileNotFoundException("file not found" + e.toString());
-			else 
-				throw new ResourceException("error while copying the resource to itself: ",e);
-		}
+//		} catch (IO e) {
+//			
+//			else 
+//				throw new ResourceException("error while copying the resource to itself: ",e);
+//		}
 		return null;
 	}
 

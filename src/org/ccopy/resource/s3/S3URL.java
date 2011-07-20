@@ -71,6 +71,9 @@ public class S3URL {
 	public S3URL(URL url) throws MalformedURLException {
 		this.url = new URL(url.getProtocol(), url.getHost(), this.encodeAbsoluteURLPath(url
 				.getPath()));
+		// check whether the URL denotes a directory, i.e. contains trailing "/"
+		if (!url.getPath().endsWith(S3URL.SEPERATOR))
+			this.isFile = true;
 	}
 
 	/**
@@ -175,9 +178,7 @@ public class S3URL {
 
 	/**
 	 * URLEncode the path segment from an URL and ensure that it is absolute (i.e. starts with an
-	 * {@value #SEPERATOR}) and doesn't contain two following path separators "//". This method also
-	 * init's the class variable {@link #isFile} depending on the ending of the path. Trailing
-	 * {@value #SEPERATOR} indicates a directory
+	 * {@value #SEPERATOR}) and doesn't contain two following path separators "//". 
 	 * <p>
 	 * The path argument <em>MUST NOT</em> be octet encoded!
 	 * 
@@ -193,9 +194,6 @@ public class S3URL {
 		// ensure the pathname is absolute and start with a "/"
 		if (!path.startsWith(S3URL.SEPERATOR))
 			path = S3URL.SEPERATOR + path;
-		// check whether the URL denotes a directory, i.e. contains trailing "/"
-		if (!path.endsWith(S3URL.SEPERATOR))
-			this.isFile = true;
 		// the path must have in between two "/" at least one char, because the directory needs a
 		// name
 		if (path.contains("//"))
@@ -255,7 +253,10 @@ public class S3URL {
 
 	@Override
 	public boolean equals(Object obj) {
-		return url.equals(obj);
+		if (obj.getClass().getName() == getClass().getName()) {
+			S3URL objUrl = (S3URL)obj;
+			return this.url.equals(objUrl.url);
+		} else return false;
 	}
 
 	public String toExternalForm() {

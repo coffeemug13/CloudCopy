@@ -16,6 +16,7 @@ import org.ccopy.resource.ResourceError;
 import org.ccopy.resource.util.MimeType;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
+import org.ccopy.util.InputStreamLogger;
 
 /**
  * The S3Object provides methods to access and manipulate objects in S3 buckets.
@@ -56,6 +57,7 @@ public class S3Object {
 	 * Constructor for S3Object
 	 */
 	protected S3Object(S3URL url) {
+		logger.fine(null);
 		this.url = url;
 	}
 
@@ -76,6 +78,7 @@ public class S3Object {
 	 *         in case of general connection problems
 	 */
 	static public S3Object getObject(S3URL url, String versionId) throws IOException, S3Exception {
+		logger.fine(null);
 		/**
 		 * Prepare the request
 		 */
@@ -121,6 +124,7 @@ public class S3Object {
 	 *         in case of general connection problems
 	 */
 	static public String getObjectAcl(URL url, String versionId) throws IOException, S3Exception {
+		logger.fine(null);
 		// TODO finalize implementation
 		// S3Request req = new S3Request(url);
 		// req.setHttpMethod(HttpMethod.GET);
@@ -164,6 +168,9 @@ public class S3Object {
 	 */
 	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException,
 			S3Exception {
+		logger.fine(null);
+		if (null == url)
+			throw new NullPointerException("url must not be null");
 		/**
 		 * Prepare the request
 		 */
@@ -174,18 +181,17 @@ public class S3Object {
 		/**
 		 * Process the request
 		 */
-		con = req.getConnection(); 
+		con = req.getConnection();
 		S3Object obj = new S3Object(url);
 		// Set the attributes of the object
 		obj.setResponseHeaders(con.getHeaderFields());
-		if (logger.isLoggable(Level.FINE)) {
-			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
-		}
 		// log some infos
 		if (logger.isLoggable(Level.FINEST)) {
 			StringBuffer buf = new StringBuffer();
 			buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
 			logger.finest(buf.toString());
+		} else if (logger.isLoggable(Level.FINE)) {
+			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
 		}
 		// finish the method
 		return obj;
@@ -213,6 +219,7 @@ public class S3Object {
 	 */
 	static public S3Response putObject(S3URL url, Map<String, String> meta2, MimeType contentType,
 			int contentLength, InputStream in) throws IOException, S3Exception {
+		logger.fine(null);
 		// perform some checks
 		if (null == in)
 			throw new NullPointerException("InputStream may not be null");
@@ -266,12 +273,12 @@ public class S3Object {
 			// con.responseCode AFTER the upload otherwise you would implicit
 			// close the connection BEFORE you upload the content which ends in
 			// an HTTP error 400 - EntityTooSmall
-//			response = new S3Response(, con.getHeaderFields());
+			// response = new S3Response(, con.getHeaderFields());
 			int res;
 			if ((res = con.getResponseCode()) >= 300) {
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 						StringUtil.streamToString(con.getErrorStream()));
-			} else 
+			} else
 				response = new S3Response(con.getResponseCode(), con.getHeaderFields());
 			// log the last written line to the logger
 			if (logger.isLoggable(Level.FINEST)) {
@@ -303,12 +310,13 @@ public class S3Object {
 	 * @return
 	 */
 	public static S3Response copyObject(S3URL fromUrl, S3URL toUrl, Map<String, String> meta,
-			MimeType contentType) throws IOException, S3Exception {
+			MimeType contentType) throws IOException {
+		logger.fine(null);
 		// perform some checks
 		if ((null == fromUrl) || (null == toUrl))
 			throw new NullPointerException("URL may be not be null");
-		boolean replace = false;
 		// check whether to make a "REPLACE" call, see S3 documentation
+		boolean replace = false;
 		if ((null != meta) || (null != contentType))
 			replace = true;
 		/**
@@ -325,8 +333,10 @@ public class S3Object {
 				req.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
-		req.addRequestHeader("x-amz-copy-source",
+		req.addRequestHeader(S3Headers.X_AMZ_COPY_SOURCE,
 				S3Request.getCanonicalizedResource(fromUrl.toURL()));
+		if (fromUrl.equals(toUrl))
+			req.addRequestHeader(S3Headers.X_AMZ_METADATA_DIRECTIVE, "REPLACE");
 		// init some vars, so you can grab them in exception or finally clause
 		HttpURLConnection con = null;
 		InputStream in = null;
@@ -336,10 +346,17 @@ public class S3Object {
 		 */
 
 		try {
-			// open the connection 
+			// open the connection
 			con = req.getConnection();
 			// open InputStream to read the response from the PUT action
-			in = con.getInputStream();
+			if (logger.isLoggable(Level.FINEST))
+				in = new InputStreamLogger(con.getInputStream());
+			else
+				in = con.getInputStream();
+			// log the last written line to the logger
+			if (logger.isLoggable(Level.FINEST)) {
+				logger.finest("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
+			}
 			// read the InputStream in chunks and write
 			S3ObjectCopyRequestParser parser = new S3ObjectCopyRequestParser(in);
 			if (parser.lastModified != -1L) {
@@ -347,9 +364,10 @@ public class S3Object {
 				response.lastModified = parser.lastModified;
 				response.eTag = parser.eTag;
 			} else {
-				throw new ResourceError("the response content for the S3 copy request couldn't be read");
+				throw new ResourceError(
+						"the response content for the S3 copy request couldn't be read");
 			}
-//			System.out.println(StringUtil.streamToString(in));
+			// System.out.println(StringUtil.streamToString(in));
 			// Workaround!!, because in case of a HTTP PUT you MUST check
 			// con.responseCode AFTER the upload otherwise you would implicit
 			// close the connection BEFORE you upload the content which ends in
@@ -359,22 +377,18 @@ public class S3Object {
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 						StringUtil.streamToString(con.getErrorStream()));
 			}
-			// extract from the response header the versionId
-			String versionId = null;
-			versionId = con.getHeaderField(S3Headers.X_AMZ_VERSION_ID.toString());
-			// log the last written line to the logger
-			if (logger.isLoggable(Level.FINEST)) {
-				StringBuffer buf = new StringBuffer();
-				buf.append("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
-				logger.finest(buf.toString());
-				logger.fine("Successfully copied/modified object from '" + fromUrl.toString()
-						+ "' to '" + toUrl.toString() + "'");
-			}
+			// log success
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully copied/modified object from '" + fromUrl.toString()
-						+ "' to '" + toUrl.toString() + "'");
+						+ "' to '" + toUrl.toString() + "'" + "\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
 			// finish the method
 			return response;
+		} catch (IOException e) {
+			if (null != con) {
+				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
+						StringUtil.streamToString(con.getErrorStream()));
+			} else
+				throw e;
 		} finally {
 			// be sure to always close the Input/Outputstreams
 			if (null != in)
@@ -418,6 +432,7 @@ public class S3Object {
 	 */
 	static public S3Response deleteObjectVersion(S3URL url, String versionId) throws IOException,
 			S3Exception {
+		logger.fine(null);
 		/**
 		 * Prepare the request
 		 */
@@ -435,7 +450,7 @@ public class S3Object {
 		if ((res = con.getResponseCode()) >= 300) {
 			throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 					StringUtil.streamToString(con.getErrorStream()));
-		} else 
+		} else
 			response = new S3Response(con.getResponseCode(), con.getHeaderFields());
 		// log some infos
 		if (logger.isLoggable(Level.FINEST)) {
@@ -496,7 +511,7 @@ public class S3Object {
 	 */
 	public String getContentType() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.CONTENT_TYPE.toString()).get(0);
+			return responseHeader.get(S3Headers.CONTENT_TYPE).get(0);
 		} else
 			return String.valueOf("utf-8");
 	}
@@ -509,7 +524,7 @@ public class S3Object {
 	 */
 	public String getContentEncoding() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.CONTENT_ENCODING.toString()).get(0);
+			return responseHeader.get(S3Headers.CONTENT_ENCODING).get(0);
 		} else
 			return String.valueOf("utf-8");
 	}
@@ -557,6 +572,7 @@ public class S3Object {
 	public InputStream getInputStream() throws IOException {
 		return con.getInputStream();
 	}
+
 	/**
 	 * Return the OutputStream if the S3Object was generated by method {@code getObject}
 	 * 
@@ -567,8 +583,10 @@ public class S3Object {
 	public OutputStream getOutputStream() throws IOException {
 		return con.getOutputStream();
 	}
+
 	/**
 	 * Set the response Headers for this object and extract some import variables like lastModified
+	 * 
 	 * @param responseHeader
 	 */
 	protected void setResponseHeaders(Map<String, List<String>> responseHeader) {
@@ -576,15 +594,15 @@ public class S3Object {
 			// now set the response header
 			this.responseHeader = responseHeader;
 			// extract last modification time
-			this.lastModified = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH.toString())) ? Integer
-					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH.toString()).get(0)) : -1L;
+			this.lastModified = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
+					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : -1L;
 			// extract the content size
-			this.size = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH.toString())) ? Integer
-					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH.toString()).get(0)) : -1L;
+			this.size = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
+					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : -1L;
 			// extract the ETag
-			if (responseHeader.containsKey(S3Headers.ETAG.toString())){
-				this.eTag = responseHeader.get(S3Headers.ETAG.toString()).get(0);
-				this.eTag = this.eTag.substring(1,this.eTag.length()-1);
+			if (responseHeader.containsKey(S3Headers.ETAG)) {
+				this.eTag = responseHeader.get(S3Headers.ETAG).get(0);
+				this.eTag = this.eTag.substring(1, this.eTag.length() - 1);
 			}
 		} else
 			this.responseHeader = null;

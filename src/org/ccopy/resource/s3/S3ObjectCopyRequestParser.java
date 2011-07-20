@@ -9,6 +9,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.xml.namespace.QName;
 import javax.xml.parsers.SAXParser;
@@ -34,23 +36,33 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 	private static final String COPY_OBJECT_RESULT = "CopyObjectResult";
 	protected long lastModified = -1L;
 	protected String eTag = null;
-	private String tmpValue;
+	private StringBuffer tmpValue = new StringBuffer(50);
 	private boolean rootElementFound = false;
 	static protected SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",
 			Locale.ENGLISH);
+	private static Logger logger = Logger.getLogger("org.ccopy");
+	private StringBuffer logBuf;
 
 	/**
 	 * Constructs the Copy Request Parser
 	 */
 	protected S3ObjectCopyRequestParser(InputStream in) {
 		super();
+		logger.fine(null);
+		if (logger.isLoggable(Level.FINEST)) 
+			this.logBuf = new StringBuffer();
 		// Use the default (non-validating) parser
 		SAXParserFactory factory = SAXParserFactory.newInstance();
 		try {
 			// Parse the input
 			SAXParser saxParser = factory.newSAXParser();
 			saxParser.parse(in, this);
+			// log something
+//			if (logger.isLoggable(Level.FINEST) && (logBuf.length()>0)) 
+//				logger.finest("parsed the following parameters from response:" + logBuf.toString());
 		} catch (Throwable t) {
+			if (logger.isLoggable(Level.FINEST) && (logBuf.length()>0))
+				logger.finest("parsed the following parameters from response:" + logBuf.toString());
 			throw new ResourceError("the response content for the S3 copy request couldn't be parsed",t);
 		}
 	}
@@ -61,7 +73,7 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 	@Override
 	public void characters(char[] ch, int start, int length) throws SAXException {
 		super.characters(ch, start, length);
-		tmpValue = new String(ch, start, length);
+		tmpValue.append(ch, start, length);
 	}
 
 	@Override
@@ -82,7 +94,10 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 				throw new SAXException("no root element 'CopyObjectResult' found");
 			// now parse the time string into a long
 			try {
-				this.lastModified = df.parse(this.tmpValue).getTime();
+				this.lastModified = df.parse(this.tmpValue.toString()).getTime();
+				if (logger.isLoggable(Level.FINEST)){
+					logBuf.append(qName + ":"+ this.lastModified + ", ");
+				}
 			} catch (ParseException e) {
 				throw new SAXException("error while converting the last modified timestamp", e);
 			}
@@ -94,7 +109,11 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 				throw new SAXException("no root element 'CopyObjectResult' found");
 			// now set the ETag attribute
 			this.eTag = this.tmpValue.substring(1, this.tmpValue.length() - 1);
-		}
+			if (logger.isLoggable(Level.FINEST)){
+				logBuf.append(qName + ":"+ this.eTag + ", ");
+			}
+		} 
+		tmpValue.setLength(0);
 	}
 
 }

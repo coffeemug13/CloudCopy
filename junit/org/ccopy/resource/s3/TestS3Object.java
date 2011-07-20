@@ -1,5 +1,5 @@
 /**
- * 
+ *  
  */
 package org.ccopy.resource.s3;
 
@@ -116,7 +116,7 @@ public class TestS3Object extends TestS3InitURLs {
 		}
 		try {
 			Map<String, String> meta = new HashMap<String, String>();
-			meta.put(S3Headers.X_AMZ_META.toString() + "custom", "attribute");
+			meta.put(S3Headers.X_AMZ_META + "custom", "attribute");
 			S3Response res = S3Object.putObject(new S3URL(TMP_URL), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 					TEST_STRING_LENGTH, new FileInputStream(file));
 			res = S3Object.putObject(new S3URL(TMP_URL_WITH_UMLAUT), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),

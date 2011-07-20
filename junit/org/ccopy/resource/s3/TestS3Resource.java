@@ -23,7 +23,7 @@ import org.junit.Test;
 /**
  * @author coffeemug13
  */
-public class TestS3Resource extends TestS3InitURLs{
+public class TestS3Resource extends TestS3InitURLs {
 
 	/**
 	 * @throws java.lang.Exception
@@ -60,6 +60,7 @@ public class TestS3Resource extends TestS3InitURLs{
 	@After
 	public void tearDown() throws Exception {
 	}
+
 	/**
 	 * This test simulates typical behavior when crawling directories.
 	 * {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}
@@ -104,6 +105,7 @@ public class TestS3Resource extends TestS3InitURLs{
 			fail("unexpected exception: " + e.toString());
 		}
 	}
+
 	/**
 	 * Tests simple manipulation of a S3Resource
 	 * {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}
@@ -121,8 +123,9 @@ public class TestS3Resource extends TestS3InitURLs{
 			if (r.isFile())
 				type = r.getContentType().toString();
 			// now change the resource and persist changes
-			r.setLastModificationTime(System.currentTimeMillis())
-			 .addMetadata("key", "value")
+			if (Resource.SUPPORTS_SET_LASTMODIFIED)
+				r.setLastModificationTime(System.currentTimeMillis());
+			r.addMetadata("key", "value")
 			 .persistChanges();
 			// cool
 		} catch (Exception e) {

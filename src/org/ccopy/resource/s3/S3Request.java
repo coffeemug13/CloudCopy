@@ -66,8 +66,9 @@ public class S3Request {
 	 * 
 	 * @param url2
 	 */
-	public S3Request(S3URL url2) {
-		this.url = url2.toURL();
+	public S3Request(S3URL url) {
+		logger.fine(null);
+		this.url = url.toURL();
 	}
 
 	/**
@@ -104,7 +105,7 @@ public class S3Request {
 		value = value.trim();
 		// collect amz headers
 		if (key.toLowerCase().startsWith("x-amz-")) {
-			if (!key.toLowerCase().equals(S3Headers.X_AMZ_META.toString())) {
+			if (!key.toLowerCase().equals(S3Headers.X_AMZ_META)) {
 			String oldKey = amzHeaders.put(key.toLowerCase(), value);
 			if (oldKey != null)
 				amzHeaders.put(key.toLowerCase(), value + "," + oldKey);
@@ -113,13 +114,13 @@ public class S3Request {
 
 	}
 
-	public Map<String, String> getRequestHeaders() {
-		return Collections.unmodifiableMap(amzHeaders);
-	}
-
-	public Map<String, List<String>> getResponseHeaders() {
-		return (con != null) ? con.getHeaderFields() : null;
-	}
+//	public Map<String, String> getRequestHeaders() {
+//		return Collections.unmodifiableMap(amzHeaders);
+//	}
+//
+//	public Map<String, List<String>> getResponseHeaders() {
+//		return (con != null) ? con.getHeaderFields() : null;
+//	}
 
 	/**
 	 * Get the connection for the specified S3 request
@@ -128,7 +129,8 @@ public class S3Request {
 	 * @throws IOException in case of problems with the connectivity e.g. Proxy 
 	 * @throws S3Exception when S3 response with HTTP Statuscode != 200 
 	 */
-	protected HttpURLConnection getConnection() throws IOException, S3Exception {
+	protected HttpURLConnection getConnection() throws IOException {
+		logger.fine(null);
 		if (HttpMethod.proxy != null) {
 			con = (HttpURLConnection) url.openConnection(HttpMethod.proxy);
 		} else {
@@ -172,7 +174,7 @@ public class S3Request {
 		if (logger.isLoggable(Level.FINEST)) {
 			StringBuffer buf = new StringBuffer();
 			buf.append("S3 request for '" + url + "'\n");
-			buf.append("request headers...\n");
+			buf.append("with request headers:\n");
 			buf.append("* " + con.getRequestMethod() + "\n");
 			buf.append("* Authorization: " + authorization + "\n");
 			buf.append(StringUtil.mapToString(con.getRequestProperties()));
@@ -181,9 +183,8 @@ public class S3Request {
 		/**
 		 * Check the HTTP status code of the connection for errors
 		 */
-		int res;
-		if (httpVerb != HttpMethod.PUT) { 
-			if ((res = con.getResponseCode()) >= 300)
+		if (httpVerb != HttpMethod.PUT) {
+			if ((con.getResponseCode()) >= 300)
 				// throw an exception for S3 errors
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(), StringUtil.streamToString(con.getErrorStream()));
 //			else if ((res = con.getResponseCode()) >= 200)
@@ -268,7 +269,7 @@ public class S3Request {
 	protected String getcanonicalizedAmzHeaders() {
 		StringBuffer buf = new StringBuffer();
 		for (Entry<String, String> entry : amzHeaders.entrySet()) {
-			if (entry.getKey().startsWith(S3Headers.AMAZON_PREFIX.toString())) {
+			if (entry.getKey().startsWith(S3Headers.AMAZON_PREFIX)) {
 				String key = entry.getKey();
 				buf.append(key);
 				buf.append(":");

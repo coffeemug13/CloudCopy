@@ -15,11 +15,11 @@ public class TestS3ObjectCopyRequestParser extends TestS3InitURLs {
 	public void testS3ObjectCopyRequestParser() {
 		try {
 			S3Resource obj = new S3Resource(new URL(TEST_URL_FILE));
-			InputStream in = new FileInputStream(new File("objectCopyResponse.xml"));
-			S3ObjectCopyRequestParser parse = new S3ObjectCopyRequestParser(in, obj);
+			InputStream in = new FileInputStream(new File(this.getClass().getResource("objectCopyResponse.xml").toURI()));
+			S3ObjectCopyRequestParser parse = new S3ObjectCopyRequestParser(in);
 			// check that both values are correct set
-			assertEquals(obj.lastModified(), 1256765520000L);
-			assertEquals(obj.getMD5Hash(),"9b2cf535f27731c974343645a3985328");
+			assertEquals(1311173485000L, parse.lastModified);
+			assertEquals("d33dfa987962515b9efa63489bdcf8e0",parse.eTag);
 		} catch (Exception e) {
 			fail("unexpected ecxeption:" + e.toString());
 		}

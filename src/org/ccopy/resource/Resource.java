@@ -127,7 +127,7 @@ public abstract class Resource {
 	 * get's defined
 	 */
 	protected Resource() {
-		// do nothing
+		logger.fine(null);
 	}
 
 	/**
@@ -178,13 +178,13 @@ public abstract class Resource {
 	 * Reset the properties of the resource to their inital values
 	 */
 	protected void reset() {
-		System.out.println("reset from resouce");
+		logger.fine("reseting the resource parameters");
 		this.isDefined = false;
 		this.isFile = false;
 		this.isModified = false;
 		this.canRead = false;
 		this.canWrite = false;
-		this.exists = true;
+		this.exists = null; // null means is undefined, false means it doesn't exist
 		this.lastModified = -1L;
 		this.md5Hash = null;
 		this.size = -1;
@@ -290,6 +290,8 @@ public abstract class Resource {
 	 */
 	public Resource addMetadata(String key, String value) throws ResourceException {
 		if (key != null) {
+			if (attributes == null)
+				attributes = new HashMap<String, String>();
 			attributes.put(key, value);
 			return this;
 		} else

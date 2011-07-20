@@ -28,19 +28,20 @@ public class LoggingDateFormatter extends Formatter {
 		// Mit Datum anfangen.
 		// Datum aus dem Protokollsatz abrufen und dem Puffer hinzufügen
 //		 Date date = new Date(record.getMillis());
+		 sb.append(record.getLevel().getName() + " ");
 		 SimpleDateFormat df = new SimpleDateFormat("HH:mm:ss", Locale.ENGLISH);
 		 sb.append(df.format(new Date(record.getMillis())));
 		 sb.append(" ");
+		 sb.append(" " + record.getSourceClassName() + " " + record.getSourceMethodName() + "\n");
 
 		// Versionsnamen abrufen und dem Puffer hinzufügen
 //		if (record.getLevel() != Level.FINE) {
-		sb.append(record.getLevel().getName());
-		sb.append(": ");
+		
+//		sb.append(": ");
 //		}
 		// Formatierte Nachricht abrufen (einschließlich Lokalisierung
 		// und Substitution von Parametern) und dem Puffer hinzufügen
-		sb.append(formatMessage(record));
-		sb.append("\n");
+		if (null != record.getMessage()) sb.append(formatMessage(record) + "\n");
 		return sb.toString();
 	}
 }

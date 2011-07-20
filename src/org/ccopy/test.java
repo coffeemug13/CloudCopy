@@ -48,12 +48,12 @@ public class test {
 //		System.out.println(end.getTime() - start.getTime());
 		
 		File file = new File("aa");
-		try {
-			file.
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+//		try {
+//			file.
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//		}
 		
 		
 	}
