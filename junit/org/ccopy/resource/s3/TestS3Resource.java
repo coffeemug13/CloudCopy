@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 import org.ccopy.TestSetup;
 import org.ccopy.resource.util.LoggingDateFormatter;
 import org.ccopy.resource.util.MimeType;
+import org.ccopy.resource.util.StringUtil;
 import org.ccopy.resource.Resource;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -102,7 +103,7 @@ public class TestS3Resource extends TestS3InitURLs {
 			// now continue crawling down and get the child's of one child
 			Resource[] childs2 = childs[1].listResources();
 		} catch (Exception e) {
-			fail("unexpected exception: " + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -129,8 +130,7 @@ public class TestS3Resource extends TestS3InitURLs {
 			 .persistChanges();
 			// cool
 		} catch (Exception e) {
-			e.printStackTrace();
-			fail("unexpected exception: " + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 

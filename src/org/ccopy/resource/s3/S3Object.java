@@ -5,7 +5,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -68,16 +67,17 @@ public class S3Object {
 	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectGET.html">Amazon
 	 *      Simple Storage Service - API Reference</a>
 	 * @param url
-	 *        the <code>URL</code> of the S3 object
+	 *            the <code>URL</code> of the S3 object
 	 * @param versionId
-	 *        the versionId or null
+	 *            the versionId or null
 	 * @return the requested S3 object
 	 * @throws S3Exception
-	 *         to handle S3 errors
+	 *             to handle S3 errors
 	 * @throws IOException
-	 *         in case of general connection problems
+	 *             in case of general connection problems
 	 */
-	static public S3Object getObject(S3URL url, String versionId) throws IOException, S3Exception {
+	static public S3Object getObject(S3URL url, String versionId) throws IOException {
+		// log the entry of this method
 		logger.fine(null);
 		/**
 		 * Prepare the request
@@ -123,7 +123,8 @@ public class S3Object {
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
-	static public String getObjectAcl(URL url, String versionId) throws IOException, S3Exception {
+	static public String getObjectAcl(URL url, String versionId) throws IOException {
+		// log the entry of this method
 		logger.fine(null);
 		// TODO finalize implementation
 		// S3Request req = new S3Request(url);
@@ -166,8 +167,8 @@ public class S3Object {
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
-	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException,
-			S3Exception {
+	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException {
+		// log the entry of this method
 		logger.fine(null);
 		if (null == url)
 			throw new NullPointerException("url must not be null");
@@ -218,7 +219,8 @@ public class S3Object {
 	 *         in case of general connection problems
 	 */
 	static public S3Response putObject(S3URL url, Map<String, String> meta2, MimeType contentType,
-			int contentLength, InputStream in) throws IOException, S3Exception {
+			int contentLength, InputStream in) throws IOException {
+		// log the entry of this method
 		logger.fine(null);
 		// perform some checks
 		if (null == in)
@@ -303,6 +305,25 @@ public class S3Object {
 	}
 
 	/**
+	 * This implementation of the PUT operation creates a copy of an object that
+	 * is already stored in Amazon S3. A PUT copy operation is the same as
+	 * performing a GET and then a PUT. Adding the request header,
+	 * x-amz-copy-source, makes the PUT operation copy the source object into
+	 * the destination bucket. When copying an object, you can preserve most of
+	 * the metadata (default) or specify new metadata. However, the ACL is not
+	 * preserved and is set to private for the user making the request. To
+	 * override the default ACL setting, use the x-amz-acl header to specify a
+	 * new ACL when generating a copy request. For more information, see Amazon
+	 * S3 ACLs.
+	 * 
+	 * All copy requests must be authenticated and cannot contain a message
+	 * body. Additionally, you must have READ access to the source object and
+	 * WRITE access to the destination bucket. For more information, see REST
+	 * Authentication.
+	 * 
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectCOPY.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
 	 * @param fromUrl
 	 * @param toUrl
 	 * @param meta
@@ -311,14 +332,12 @@ public class S3Object {
 	 */
 	public static S3Response copyObject(S3URL fromUrl, S3URL toUrl, Map<String, String> meta,
 			MimeType contentType) throws IOException {
+		// log the entry of this method
 		logger.fine(null);
 		// perform some checks
 		if ((null == fromUrl) || (null == toUrl))
 			throw new NullPointerException("URL may be not be null");
 		// check whether to make a "REPLACE" call, see S3 documentation
-		boolean replace = false;
-		if ((null != meta) || (null != contentType))
-			replace = true;
 		/**
 		 * Prepare the request
 		 */
@@ -326,17 +345,24 @@ public class S3Object {
 		// this is a PUT request
 		req.setHttpMethod(HttpMethod.PUT);
 		// you can't set the "Content-Length" attribute via addRequestHeader
-		req.setFixedLengthStreamingMode(0); // we don't stream content, just headers
+		// we don't stream content, just headers
+		req.setFixedLengthStreamingMode(0); 
 		// now set some header attributes if available
 		if (null != meta) {
 			for (Entry<String, String> entry : meta.entrySet()) {
 				req.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
+		// set a special directive according to S3 API
 		req.addRequestHeader(S3Headers.X_AMZ_COPY_SOURCE,
 				S3Request.getCanonicalizedResource(fromUrl.toURL()));
-		if (fromUrl.equals(toUrl))
+		// if the URLs are equal, than set according to S3 API the header
+		// "x-amz-metadata-directive" with "REPLACE" otherwise you get an
+		// error from S3. See the S3 API documentation
+		if (fromUrl.equals(toUrl) || (null!= meta))
 			req.addRequestHeader(S3Headers.X_AMZ_METADATA_DIRECTIVE, "REPLACE");
+		else
+			req.addRequestHeader(S3Headers.X_AMZ_METADATA_DIRECTIVE, "COPY");
 		// init some vars, so you can grab them in exception or finally clause
 		HttpURLConnection con = null;
 		InputStream in = null;
@@ -355,39 +381,37 @@ public class S3Object {
 				in = con.getInputStream();
 			// log the last written line to the logger
 			if (logger.isLoggable(Level.FINEST)) {
-				logger.finest("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
+				logger.finest("S3 response headers:\n"
+						+ StringUtil.mapToString(con.getHeaderFields()));
 			}
 			// read the InputStream in chunks and write
 			S3ObjectCopyRequestParser parser = new S3ObjectCopyRequestParser(in);
-			if (parser.lastModified != -1L) {
-				response = new S3Response(con.getResponseCode(), con.getHeaderFields());
-				response.lastModified = parser.lastModified;
-				response.eTag = parser.eTag;
-			} else {
-				throw new ResourceError(
-						"the response content for the S3 copy request couldn't be read");
-			}
-			// System.out.println(StringUtil.streamToString(in));
+			// create the response object
+			response = new S3Response(con.getResponseCode(),
+					con.getHeaderFields());
+			response.lastModified = parser.lastModified;
+			response.eTag = parser.eTag;
 			// Workaround!!, because in case of a HTTP PUT you MUST check
 			// con.responseCode AFTER the upload otherwise you would implicit
 			// close the connection BEFORE you upload the content which ends in
 			// an HTTP error 400 - EntityTooSmall
-			int res;
-			if ((res = con.getResponseCode()) >= 300) {
-				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
-						StringUtil.streamToString(con.getErrorStream()));
-			}
+			if ((con.getResponseCode()) >= 300)
+				throw new S3Exception(con.getResponseCode(),
+						con.getResponseMessage(), StringUtil.streamToString(con
+								.getErrorStream()));
 			// log success
 			if (logger.isLoggable(Level.FINE))
-				logger.fine("Successfully copied/modified object from '" + fromUrl.toString()
-						+ "' to '" + toUrl.toString() + "'" + "\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
+				logger.fine("Successfully copied/modified object from '"
+						+ fromUrl.toString() + "' to '" + toUrl.toString() + "'" + "\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
 			// finish the method
 			return response;
 		} catch (IOException e) {
 			if (null != con) {
+				// if open connection found, it's likely a http error code from S3
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 						StringUtil.streamToString(con.getErrorStream()));
 			} else
+				// otherwise pass the original exception
 				throw e;
 		} finally {
 			// be sure to always close the Input/Outputstreams
@@ -469,7 +493,7 @@ public class S3Object {
 	/**
 	 * Tests whether the object can be read under this URL.
 	 * 
-	 * @return true if the object exists AND can be read; false otherwise
+	 * @return <code>true</code> if the object exists AND can be read; <code>false</code> otherwise
 	 */
 	public boolean canRead() {
 		return (null != responseHeader) ? true : false;
@@ -478,7 +502,7 @@ public class S3Object {
 	/**
 	 * Tests whether the object can be written under this URL.
 	 * 
-	 * @return true if the object exists AND can be written; false otherwise
+	 * @return <code>true</code> if the object exists AND can be written; <code>false</code> otherwise
 	 */
 	public boolean canWrite() {
 		// TODO implement the function. I think we need to get the ACLs here
@@ -488,7 +512,9 @@ public class S3Object {
 	/**
 	 * Tests whether the object exists under this URL.
 	 * 
-	 * @return true if the object exists
+	 * @return <code>true</code> if the object exists, <code>false</code> if the resource
+	 *         doesn't exist or <code>null</code> if it's unknown whether the
+	 *         object exists, e.g. because of IO connection problems
 	 */
 	public boolean exists() {
 		return (null != responseHeader) ? true : false;
@@ -497,53 +523,60 @@ public class S3Object {
 	/**
 	 * Returns the content length of the object.
 	 * 
-	 * @return length or -1 if not known
+	 * @return length of the object if it exists; otherwise <code>-1L</code> 
 	 */
 	public long getContentLength() {
 		return this.size;
 	}
 
 	/**
-	 * Returns the content type of this object. This is an optional attribute and must be set
-	 * manually when you put the object
+	 * Returns the content type of this object. This is an optional attribute
+	 * and must be set manually when you put the object
 	 * 
-	 * @return the content type or null if not known
+	 * @return the content type if the object exist; otherwise <code>null</code>
+	 *         if the file does not exist or the content type is not set
 	 */
 	public String getContentType() {
 		if (null != responseHeader) {
 			return responseHeader.get(S3Headers.CONTENT_TYPE).get(0);
 		} else
-			return String.valueOf("utf-8");
+			return null;
 	}
 
 	/**
 	 * Returns the content encoding of this object. This is an optional attribute and must be set
 	 * manually when you put the object
 	 * 
-	 * @return the content encoding or null if not known
+	 * @return  the content encoding if the object exist and is set; otherwise <code>null</code>
+	 *         if the file does not exist or the content encoding is not set
 	 */
 	public String getContentEncoding() {
 		if (null != responseHeader) {
 			return responseHeader.get(S3Headers.CONTENT_ENCODING).get(0);
 		} else
-			return String.valueOf("utf-8");
+			return null;
 	}
 
 	/**
 	 * Returns the value of the last-modified header field. The result is the number of milliseconds
 	 * since January 1, 1970 GMT.
 	 * 
-	 * @return the date the resource referenced by this URLConnection was last modified, or -1 if
-	 *         not known.
+	 * @return  A <code>long</code> value representing the time this resource was
+     *          last modified, measured in milliseconds since the epoch
+     *          (00:00:00 GMT, January 1, 1970), or <code>0L</code> if the
+     *          file does not exist or if an I/O error occur
 	 */
 	public long getLastModified() {
 		return this.lastModified;
 	}
 
 	/**
-	 * Returns the versionId of this object, e.g. "3HL4kqtJlcpXrof3vjVBH40Nrjfkd"
+	 * Returns the versionId of this object, e.g.
+	 * "3HL4kqtJlcpXrof3vjVBH40Nrjfkd"
 	 * 
-	 * @return the versionId or null if not known
+	 * @return the versionID if the object exist and is set; otherwise
+	 *         <code>null</code> if the file does not exist or the versionID is
+	 *         not set
 	 */
 	public String getVersionId() {
 		if (null != responseHeader) {
@@ -556,7 +589,8 @@ public class S3Object {
 	/**
 	 * Returns the ETag of this object, e.g. "fba9dede5f27731c9771645a39863328"
 	 * 
-	 * @return the ETag or null if not known
+	 * @return the ETag if the object exist; otherwise <code>null</code> if the
+	 *         file does not exist
 	 */
 	public String getETag() {
 		return this.eTag;
@@ -565,22 +599,24 @@ public class S3Object {
 	/**
 	 * Return the InputStream if the S3Object was generated by method {@code getObject}
 	 * 
-	 * @return
+	 * @return the InputStream
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
 	public InputStream getInputStream() throws IOException {
+		if (null == con) throw new IllegalStateException("no connection yet established. This instance was not created by method getObject()");
 		return con.getInputStream();
 	}
 
 	/**
 	 * Return the OutputStream if the S3Object was generated by method {@code getObject}
 	 * 
-	 * @return
+	 * @return the OutputStream
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
 	public OutputStream getOutputStream() throws IOException {
+		if (null == con) throw new IllegalStateException("no connection yet established. This instance was not created by method putObject()");
 		return con.getOutputStream();
 	}
 
@@ -590,9 +626,9 @@ public class S3Object {
 	 * @param responseHeader
 	 */
 	protected void setResponseHeaders(Map<String, List<String>> responseHeader) {
+		// now set the response header
+		this.responseHeader = responseHeader;
 		if (null != responseHeader) {
-			// now set the response header
-			this.responseHeader = responseHeader;
 			// extract last modification time
 			this.lastModified = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
 					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : -1L;
@@ -604,8 +640,7 @@ public class S3Object {
 				this.eTag = responseHeader.get(S3Headers.ETAG).get(0);
 				this.eTag = this.eTag.substring(1, this.eTag.length() - 1);
 			}
-		} else
-			this.responseHeader = null;
+		} 
 	}
 
 }

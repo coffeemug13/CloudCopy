@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 
 import org.ccopy.TestSetup;
 import org.ccopy.resource.util.LoggingDateFormatter;
+import org.ccopy.resource.util.StringUtil;
 import org.ccopy.resource.ResourceAuthenticator;
 import org.ccopy.util.HttpMethod;
 import org.junit.After;
@@ -92,7 +93,6 @@ public class TestS3Request {
 				}
 				in.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 				InputStream ein = con.getErrorStream();
 				while ((read = ein.read(c)) != -1) {
@@ -100,6 +100,7 @@ public class TestS3Request {
 					System.out.write(c, 0, read);
 					// System.out.println("e----");
 				}
+				fail(StringUtil.exceptionToString(e));
 			} finally {
 				if (in != null) {
 					in.close();
@@ -108,8 +109,7 @@ public class TestS3Request {
 			}
 			
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			fail(e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 	/**
@@ -120,7 +120,6 @@ public class TestS3Request {
 		S3Request req;
 		try {
 			req = new S3Request(new S3URL(TEST_URL_OBJECT));
-		req.addRequestHeader("ytest", "value1");
 		req.addRequestHeader("x-amz-meta-Username", "value1");
 		req.addRequestHeader("X-Amz-Meta-ReviewedBy", "alice@s3.com");
 		req.addRequestHeader("x-amz-meta-checksumalgorithm ", " crc32");
@@ -128,7 +127,7 @@ public class TestS3Request {
 		//System.out.println(req.getcanonicalizedAmzHeaders());
 		assertEquals(req.getcanonicalizedAmzHeaders(), "x-amz-meta-checksumalgorithm:crc32\nx-amz-meta-reviewedby:bob@s3.com,alice@s3.com\nx-amz-meta-username:value1\n");
 		} catch (Exception e) {
-			fail("unexpected exception:\n" + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 	/**
@@ -146,7 +145,7 @@ public class TestS3Request {
 			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n4gJE4saaMU4BqNR0kLY+lw==\napplication/x-download\nTue, 27 Mar 2007 21:06:08 +0000\nx-amz-acl:public-read\nx-amz-meta-checksumalgorithm:crc32\nx-amz-meta-filechecksum:0x02661779\nx-amz-meta-reviewedby:joe@johnsmith.net,jane@johnsmith.net\n/static.johnsmith.net/db-backup.dat.gz");
 			assertEquals(sign, "C0FlOtU8Ylb9KDTpZqYkZPX91iI=");
 		} catch (Exception e) {
-			fail("unexpected exception:\n" + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		} 
 	}
 }

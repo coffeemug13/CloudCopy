@@ -6,21 +6,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.channels.IllegalSelectorException;
-import java.security.InvalidKeyException;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.logging.Logger;
-
 import org.ccopy.resource.Resource;
 import org.ccopy.resource.ResourceException;
 import org.ccopy.resource.util.MimeType;
-import org.ccopy.util.HttpMethod;
 
 /**
  * Implements the Asset as simple File Object.

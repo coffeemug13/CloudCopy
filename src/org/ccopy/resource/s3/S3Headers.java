@@ -3,8 +3,6 @@
  */
 package org.ccopy.resource.s3;
 
-import java.net.Proxy;
-
 /**
  * @author coffeemug13
  *

@@ -3,20 +3,17 @@
  */
 package org.ccopy.resource.s3;
 
-import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.xml.namespace.QName;
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
-import org.ccopy.resource.ResourceError;
 import org.xml.sax.Attributes;
 import org.xml.sax.SAXException;
 import org.xml.sax.helpers.DefaultHandler;
@@ -45,8 +42,13 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 
 	/**
 	 * Constructs the Copy Request Parser
+	 * 
+	 * @throws S3Exception
+	 *             when the InputStream doesn't contain lastModified and ETag
+	 * @throws IOException
+	 * 			when parsing the InputStream by SAXParser is not possible
 	 */
-	protected S3ObjectCopyRequestParser(InputStream in) {
+	protected S3ObjectCopyRequestParser(InputStream in) throws IOException{
 		super();
 		logger.fine(null);
 		if (logger.isLoggable(Level.FINEST)) 
@@ -57,14 +59,21 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 			// Parse the input
 			SAXParser saxParser = factory.newSAXParser();
 			saxParser.parse(in, this);
-			// log something
-//			if (logger.isLoggable(Level.FINEST) && (logBuf.length()>0)) 
-//				logger.finest("parsed the following parameters from response:" + logBuf.toString());
 		} catch (Throwable t) {
-			if (logger.isLoggable(Level.FINEST) && (logBuf.length()>0))
-				logger.finest("parsed the following parameters from response:" + logBuf.toString());
-			throw new ResourceError("the response content for the S3 copy request couldn't be parsed",t);
+			if (logger.isLoggable(Level.FINEST) && (logBuf.length() > 0))
+				logger.finest("parsed the following parameters from response:"
+						+ logBuf.toString());
+			throw new IOException("error while parsing S3 response from PutCopy operation",t);
+//			throw new Error(
+//					"the response content for the S3 copy request couldn't be parsed",
+//					t);
 		}
+		// check that both variables have been found otherwise throw exception
+		if ((-1L == lastModified) || (null == this.eTag))
+			throw new S3Exception(
+					S3Exception.INTERNAL_ERROR,
+					"LastModified or ETag not found in InputStream. Looks like, there was an error while PutCopy an S3 object",
+					null);
 	}
 
 	/* (non-Javadoc)

@@ -19,7 +19,7 @@ public class TestS3InitURLs {
 	protected static final String TEST_URL_FILE_UNCLEAN = "https://user@ccopy.s3.amazonaws.com/test.txt?with#fragment";
 	protected static final String TEST_URL_FILE_FILENAME = "test.txt";
 	protected static final String TEST_URL_FILE_MALFORMED = "https://ccopy.s3.amazonaws.com/dir//test.txt";
-	protected static final String TEST_URL_FILE_WITH_UMLAUTE = "https://ccopy.s3.amazonaws.com/test/Mit Ãœmlaut+Sonderzeichen.txt";
+	protected static final String TEST_URL_FILE_WITH_UMLAUTE = "https://ccopy.s3.amazonaws.com/test/Mit Ümlaut+Sonderzeichen.txt";
 	protected static final String TEST_URL_FILE_WITH_UMLAUTE_ENCODED = "https://ccopy.s3.amazonaws.com%2Ftest%2FMit+%C3%9Cmlaut%2BSonderzeichen.txt";
 	protected static final String TEST_URL_DIR = "https://ccopy.s3.amazonaws.com/test/";
 	/**

@@ -4,8 +4,7 @@
 package org.ccopy.resource.s3;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.logging.Logger;
 
 /**
  * This class indicates a error from the Amazon Simple Storage Service. You can retrieve the
@@ -47,6 +46,7 @@ public class S3Exception extends IOException {
 	/**
 	 * 500	We encountered an internal error. Please try again.
 	 */
+	public static final int INTERNAL_ERROR = 500;
 	/**
 	 * 501	A header you provided implies functionality that is not implemented.
 	 */
@@ -74,6 +74,8 @@ public class S3Exception extends IOException {
 	public S3Exception(int errorCode, String errorMessage, String detailedErrorMessage) {
 		super(errorCode + " - " + parseReason(errorCode) + "; " + detailedErrorMessage);
 		this.errorCode = errorCode;
+		Logger logger = Logger.getLogger("org.ccopy");
+		logger.warning(this.getMessage());
 	}
 
 	/**

@@ -17,7 +17,7 @@ import java.util.zip.DataFormatException;
  * 
  */
 public class MimeType {
-	public final static String DEFAULT = "application/octet-stream";
+	public static final String DEFAULT = "application/octet-stream";
 	/**
 	 * The internal String representation for this MimeType
 	 */
@@ -26,7 +26,7 @@ public class MimeType {
 	 * The FileNameMap which holds the mapping between some extensions and their
 	 * corresponding mimetype
 	 */
-	private final static FileNameMap mimeTypeMap = URLConnection.getFileNameMap();
+	private static final FileNameMap mimeTypeMap = URLConnection.getFileNameMap();
 	/**
 	 * the predefined Pattern to match a mimetype
 	 */

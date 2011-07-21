@@ -9,14 +9,11 @@ import java.net.HttpURLConnection;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URL;
-import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.TimeZone;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -99,8 +96,15 @@ public class S3Request {
 	public void setContentType(String contentType) {
 		this.contentType = contentType;
 	}
-
+	/**
+	 * Set request headers manually.
+	 * @param key
+	 * @param value
+	 * @throws NullPointerException when arguments are <code>null</code>
+	 */
 	public void addRequestHeader(String key, String value) {
+		// the next two line will throw a NullPointerException when arguments are null
+		// therefore no excplicit check whether argument null
 		key = key.trim();
 		value = value.trim();
 		// collect amz headers
@@ -113,7 +117,7 @@ public class S3Request {
 		} else amzHeaders.put(key, value);
 
 	}
-
+//  deleted because not needed yet.
 //	public Map<String, String> getRequestHeaders() {
 //		return Collections.unmodifiableMap(amzHeaders);
 //	}
@@ -169,12 +173,12 @@ public class S3Request {
 		con.addRequestProperty("Authorization", authorization);
 
 		/**
-		 * Print the request and response headers for logging
+		 * Print the request headers for logging
 		 */
 		if (logger.isLoggable(Level.FINEST)) {
 			StringBuffer buf = new StringBuffer();
 			buf.append("S3 request for '" + url + "'\n");
-			buf.append("with request headers:\n");
+			buf.append("the following request headers have been set:\n");
 			buf.append("* " + con.getRequestMethod() + "\n");
 			buf.append("* Authorization: " + authorization + "\n");
 			buf.append(StringUtil.mapToString(con.getRequestProperties()));
@@ -187,9 +191,6 @@ public class S3Request {
 			if ((con.getResponseCode()) >= 300)
 				// throw an exception for S3 errors
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(), StringUtil.streamToString(con.getErrorStream()));
-//			else if ((res = con.getResponseCode()) >= 200)
-//				// set the response code
-//				this.responseCode = con.getResponseCode();
 		} 
 		/**
 		 * finish the method

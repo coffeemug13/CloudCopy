@@ -13,7 +13,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.ccopy.resource.util.MimeType;
-import org.omg.CORBA.SystemException;
 
 /**
  * This class represents a generic Resource. The design of this class is derived from the

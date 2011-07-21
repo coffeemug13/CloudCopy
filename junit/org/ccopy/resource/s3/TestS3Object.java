@@ -8,8 +8,11 @@ import static org.junit.Assert.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -38,7 +41,8 @@ public class TestS3Object extends TestS3InitURLs {
 	/**
 	 * String with Umlaute for testing purpose
 	 */
-	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß";
+	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\n������~@��"; 
+		//"1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß";
 	private static String TEST_STRING_MD5;
 	private static int TEST_STRING_LENGTH;
 	/**
@@ -58,7 +62,13 @@ public class TestS3Object extends TestS3InitURLs {
 			e.printStackTrace();
 			System.exit(1);
 		}
-		TEST_STRING_LENGTH = TEST_STRING.getBytes().length;
+		try {
+			TEST_STRING_LENGTH = TEST_STRING.getBytes("UTF-8").length;
+		} catch (UnsupportedEncodingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			System.exit(1);
+		}
 
 	}
 
@@ -108,7 +118,7 @@ public class TestS3Object extends TestS3InitURLs {
 		File file = null;
 		try {
 			file = File.createTempFile("s3testfile", null);
-			FileWriter w = new FileWriter(file);
+			OutputStreamWriter w = new OutputStreamWriter(new FileOutputStream(file),"UTF-8");
 			w.write(TEST_STRING);
 			w.close();
 		} catch (IOException e) {
@@ -122,7 +132,7 @@ public class TestS3Object extends TestS3InitURLs {
 			res = S3Object.putObject(new S3URL(TMP_URL_WITH_UMLAUT), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
 					TEST_STRING_LENGTH, new FileInputStream(file));
 		} catch (Exception e) {
-			fail(e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -167,7 +177,7 @@ public class TestS3Object extends TestS3InitURLs {
 			} catch (NullPointerException e) { /* that is the expected Exception	*/ }
 			
 		} catch (Exception e) {
-			fail("unexpected Exception: " + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -185,7 +195,7 @@ public class TestS3Object extends TestS3InitURLs {
 			assertTrue("Content-Length", TEST_STRING_LENGTH == obj.getContentLength());
 			assertEquals(TEST_STRING_MD5, obj.getETag());
 		} catch (Exception e) {
-			fail(e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -204,7 +214,7 @@ public class TestS3Object extends TestS3InitURLs {
 		} catch (FileNotFoundException e) {
 			// that error is correct, continue testing
 		} catch (Exception e) {
-			fail("Unexpected Exception occured: " + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 		// test FileNotFound
 		try {
@@ -212,7 +222,7 @@ public class TestS3Object extends TestS3InitURLs {
 		} catch (FileNotFoundException e) {
 			// that error is correct, continue testing
 		} catch (Exception e) {
-			fail("Unexpected Exception occured: " + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -234,7 +244,7 @@ public class TestS3Object extends TestS3InitURLs {
 			// then compare the content of the object
 			assertEquals("compare content",TEST_STRING, StringUtil.streamToString(obj.getInputStream()));
 		} catch (Exception e) {
-			fail(e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
@@ -250,7 +260,7 @@ public class TestS3Object extends TestS3InitURLs {
 			res = S3Object.deleteObject(new S3URL(TMP_URL_WITH_UMLAUT));
 		} catch (Exception e) {
 			e.printStackTrace();
-			fail("Unexpected Exception occured" + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 }

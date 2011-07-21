@@ -41,7 +41,7 @@ public class StringUtil {
 		int read;
 		byte[] c = new byte[100]; // with increasing value speed goes up
 		while ((read = in.read(c)) != -1) {
-			buf.append(new String(c, 0, read));
+			buf.append(new String(c, 0, read,"UTF-8"));
 		}
 		in.close();
 		return buf.toString();
@@ -109,5 +109,19 @@ public class StringUtil {
 	 */
 	static public String bytToHexString(byte[] in) {
 		return new String(byteToHex(in));
+	}
+
+	public static String exceptionToString(Exception e) {
+		StackTraceElement[] st = e.getStackTrace();
+		StringBuffer buf = new StringBuffer();
+		buf.append(e.getClass().getName() + " - ");
+		if (null!= e.getMessage()) buf.append(e.getMessage());
+		buf.append("\n");
+		for (int i = 0;(i<st.length)&&(i<4);i++){
+//		for (StackTraceElement s : st) {
+			buf.append(st[i].toString());
+			buf.append("\n");
+		}
+		return buf.toString();
 	}
 }

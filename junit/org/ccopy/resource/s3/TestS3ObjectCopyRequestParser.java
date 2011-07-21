@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.net.URL;
 
+import org.ccopy.resource.util.StringUtil;
 import org.junit.Test;
 
 public class TestS3ObjectCopyRequestParser extends TestS3InitURLs {
@@ -21,7 +22,7 @@ public class TestS3ObjectCopyRequestParser extends TestS3InitURLs {
 			assertEquals(1311173485000L, parse.lastModified);
 			assertEquals("d33dfa987962515b9efa63489bdcf8e0",parse.eTag);
 		} catch (Exception e) {
-			fail("unexpected ecxeption:" + e.toString());
+			fail(StringUtil.exceptionToString(e));
 		}
 	}
 
