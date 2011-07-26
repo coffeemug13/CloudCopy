@@ -71,7 +71,7 @@ public class S3ObjectCopyRequestParser extends DefaultHandler {
 		// check that both variables have been found otherwise throw exception
 		if ((-1L == lastModified) || (null == this.eTag))
 			throw new S3Exception(
-					S3Exception.INTERNAL_ERROR,
+					S3Exception.INTERNAL_SERVER_ERROR,
 					"LastModified or ETag not found in InputStream. Looks like, there was an error while PutCopy an S3 object",
 					null);
 	}

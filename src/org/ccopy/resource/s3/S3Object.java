@@ -50,7 +50,7 @@ public class S3Object {
 	/**
 	 * Size in bytes of the object.
 	 */
-	protected long size = -1L;
+	protected long size;
 
 	/**
 	 * Constructor for S3Object
@@ -77,8 +77,12 @@ public class S3Object {
 	 *             in case of general connection problems
 	 */
 	static public S3Object getObject(S3URL url, String versionId) throws IOException {
+		long start = 0L;
 		// log the entry of this method
-		logger.fine(null);
+		if (logger.isLoggable(Level.FINE)) {
+			start = System.currentTimeMillis();
+			logger.fine(null);
+		}
 		/**
 		 * Prepare the request
 		 */
@@ -102,7 +106,7 @@ public class S3Object {
 			}
 			if (logger.isLoggable(Level.FINE)) {
 				logger.fine("Successfully read metadata and opened InputStream for S3 object to '"
-						+ url.toString() + "'");
+						+ url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
 			}
 			return obj;
 		} finally {
@@ -168,8 +172,13 @@ public class S3Object {
 	 *         in case of general connection problems
 	 */
 	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException {
+		long start = 0L;
 		// log the entry of this method
-		logger.fine(null);
+		if (logger.isLoggable(Level.FINE)) {
+			start = System.currentTimeMillis();
+			logger.fine(null);
+		}
+		// check arguments
 		if (null == url)
 			throw new NullPointerException("url must not be null");
 		/**
@@ -192,7 +201,7 @@ public class S3Object {
 			buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
 			logger.finest(buf.toString());
 		} else if (logger.isLoggable(Level.FINE)) {
-			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "'");
+			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
 		}
 		// finish the method
 		return obj;
@@ -220,8 +229,12 @@ public class S3Object {
 	 */
 	static public S3Response putObject(S3URL url, Map<String, String> meta2, MimeType contentType,
 			int contentLength, InputStream in) throws IOException {
+		long start = 0L;
 		// log the entry of this method
-		logger.fine(null);
+		if (logger.isLoggable(Level.FINE)) {
+			start = System.currentTimeMillis();
+			logger.fine(null);
+		}
 		// perform some checks
 		if (null == in)
 			throw new NullPointerException("InputStream may not be null");
@@ -292,7 +305,7 @@ public class S3Object {
 			}
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully written '" + readCounter + "' Bytes to '"
-						+ url.toString() + "'");
+						+ url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
 			// finish the method
 			return response;
 		} finally {
@@ -332,8 +345,12 @@ public class S3Object {
 	 */
 	public static S3Response copyObject(S3URL fromUrl, S3URL toUrl, Map<String, String> meta,
 			MimeType contentType) throws IOException {
+		long start = 0L;
 		// log the entry of this method
-		logger.fine(null);
+		if (logger.isLoggable(Level.FINE)) {
+			start = System.currentTimeMillis();
+			logger.fine(null);
+		}
 		// perform some checks
 		if ((null == fromUrl) || (null == toUrl))
 			throw new NullPointerException("URL may be not be null");
@@ -402,7 +419,7 @@ public class S3Object {
 			// log success
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully copied/modified object from '"
-						+ fromUrl.toString() + "' to '" + toUrl.toString() + "'" + "\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
+						+ fromUrl.toString() + "' to '" + toUrl.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+ "'ms\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
 			// finish the method
 			return response;
 		} catch (IOException e) {
@@ -456,7 +473,12 @@ public class S3Object {
 	 */
 	static public S3Response deleteObjectVersion(S3URL url, String versionId) throws IOException,
 			S3Exception {
-		logger.fine(null);
+		long start = 0L;
+		// log the entry of this method
+		if (logger.isLoggable(Level.FINE)) {
+			start = System.currentTimeMillis();
+			logger.fine(null);
+		}
 		/**
 		 * Prepare the request
 		 */
@@ -484,7 +506,7 @@ public class S3Object {
 		}
 		if (logger.isLoggable(Level.FINE)) {
 			logger.fine("Successfully deleted S3 object '" + url.toString() + "' with version '"
-					+ versionId + "'");
+					+ versionId + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
 		}
 		// finish the method
 		return response;
@@ -523,7 +545,7 @@ public class S3Object {
 	/**
 	 * Returns the content length of the object.
 	 * 
-	 * @return length of the object if it exists; otherwise <code>-1L</code> 
+	 * @return length of the object if it exists; otherwise <code>0L</code> 
 	 */
 	public long getContentLength() {
 		return this.size;
@@ -538,7 +560,8 @@ public class S3Object {
 	 */
 	public String getContentType() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.CONTENT_TYPE).get(0);
+			List<String> list = responseHeader.get(S3Headers.CONTENT_TYPE);
+			return (null!=list)?list.get(0):null;
 		} else
 			return null;
 	}
@@ -552,7 +575,8 @@ public class S3Object {
 	 */
 	public String getContentEncoding() {
 		if (null != responseHeader) {
-			return responseHeader.get(S3Headers.CONTENT_ENCODING).get(0);
+			List<String> list = responseHeader.get(S3Headers.CONTENT_ENCODING);
+			return (null!=list)?list.get(0):null;
 		} else
 			return null;
 	}
@@ -641,6 +665,17 @@ public class S3Object {
 				this.eTag = this.eTag.substring(1, this.eTag.length() - 1);
 			}
 		} 
+	}
+	public boolean isFile() {
+		return url.isFile;
+	}
+	
+	public boolean isDirectory() {
+		return !url.isFile;
+	}
+
+	public URL getURL() {
+		return this.url.toURL();
 	}
 
 }

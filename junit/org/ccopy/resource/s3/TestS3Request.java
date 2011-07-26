@@ -40,13 +40,6 @@ public class TestS3Request {
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
 		TestSetup.initialSetup();
-		// set the Log Format and Level
-		ConsoleHandler ch = new ConsoleHandler();
-		ch.setLevel(Level.FINEST);
-		ch.setFormatter(new LoggingDateFormatter());
-		// add to logger
-		logger.addHandler(ch);
-		logger.setLevel(Level.FINEST);
 	}
 
 	/**

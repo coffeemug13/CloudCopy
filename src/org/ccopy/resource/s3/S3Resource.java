@@ -7,6 +7,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.ccopy.resource.Resource;
 import org.ccopy.resource.ResourceException;
 import org.ccopy.resource.util.MimeType;
@@ -22,19 +25,9 @@ public class S3Resource extends Resource {
 	public static final boolean SUPPORTS_METADATA = true;
 	public static final boolean SUPPORTS_SET_LASTMODIFIED = false;
 	/**
-	 * The region of the S3 bucket for this resource
-	 */
-	protected String bucketRegion = null;
-	/**
-	 * The name of the bucket
-	 */
-	protected String bucketName = null;
-	/**
 	 * the proper encoded S3 URL of this resource
 	 */
-	protected S3URL s3URL;
 	protected S3Object s3Object;
-	private String versionId;
 
 	/**
 	 * Construct a Resource based on a {@code ResourceLocator}.
@@ -46,7 +39,7 @@ public class S3Resource extends Resource {
 	 */
 	public S3Resource(URL url) throws MalformedURLException {
 		super(url);
-		this.s3URL = new S3URL(url);
+//		this.s3URL = new S3URL(url);
 		this.reset();
 	}
 
@@ -62,7 +55,7 @@ public class S3Resource extends Resource {
 	 */
 	public S3Resource(S3Resource s3, String child) throws MalformedURLException {
 		super(s3, child);
-		this.s3URL = new S3URL(s3, child);
+//		this.s3URL = new S3URL(s3, child);
 		this.reset();
 	}
 
@@ -81,6 +74,15 @@ public class S3Resource extends Resource {
 		this.reset();
 		this.s3URL = S3URL.fromPath(bucket, key);
 	}
+	/**
+	 * 
+	 * @param object
+	 * @throws MalformedURLException 
+	 */
+	protected S3Resource(S3Object object) throws MalformedURLException {
+		super(object.getURL());
+		this.s3Object = object;
+	}
 
 	/**
 	 * Get the status of the S3 resource from S3(exists, isDirectory, isReadable, etc.
@@ -97,7 +99,7 @@ public class S3Resource extends Resource {
 			this.isDefined = true;
 			this.exists = this.s3Object.exists();
 			this.isFile = this.s3URL.isFile;
-			this.contentType = new MimeType(this.s3Object.getContentType());
+			this.contentType = (null!=this.s3Object.getContentType())? new MimeType(this.s3Object.getContentType()) : null;
 		} catch (S3Exception e) {
 			if (e.getErrorCode() == HttpURLConnection.HTTP_NOT_FOUND) {
 				// object not found is not an exception for getStatus but an valid information
@@ -113,9 +115,11 @@ public class S3Resource extends Resource {
 	 * Reset the resource to an "new" status. The {@link #s3URL} is not reset, because it defines a S3Resource
 	 */
 	protected void reset() {
-		super.reset();
-		this.s3Object = null;
-//		this.s3URL = null;
+		if (this.isModified) {
+			super.reset();
+			this.s3Object = null;
+		}
+		// this.s3URL = null;
 	}
 
 	@Override
@@ -197,11 +201,19 @@ public class S3Resource extends Resource {
 	}
 
 	@Override
-	public Resource[] listResources() throws ResourceException {
+	public List<Resource> listResources() throws ResourceException, IOException {
+		// check that this resource is a directory
 		if (!this.isDirectory())
 			throw new IllegalStateException("a file resource can't have child resources");
-		// TODO fetch the sub resources for this S3 resource by creating correct request
-		return new Resource[0];
+		// fetch the list of objects from containing bucket
+		List<S3Object> list = S3Bucket.listObjects(this.bucketName, this.getPath(), null);
+		List<Resource> res = new ArrayList<Resource>();
+		// convert to S3Resources
+		for (S3Object s3Obj : list) {
+			 res.add(new S3Resource(s3Obj));
+		}
+		// and return
+		return res;
 	}
 
 	@Override

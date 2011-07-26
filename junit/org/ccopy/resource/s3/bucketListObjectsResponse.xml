@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+	<Name>ccopy</Name>
+	<Prefix></Prefix>
+	<Marker></Marker>
+	<MaxKeys>1000</MaxKeys>
+	<IsTruncated>false</IsTruncated>
+	<Contents>
+		<Key>test.txt</Key>
+		<LastModified>2011-07-25T07:19:06.000Z</LastModified>
+		<ETag>&quot;d33dfa987962515b9efa63489bdcf8e0&quot;</ETag>
+		<Size>56</Size>
+		<Owner>
+			<ID>1174636ee102247062773d2f4572faff7749c8a283bc5e5da8ffbff45d54744c
+			</ID>
+			<DisplayName>michael</DisplayName>
+		</Owner>
+		<StorageClass>STANDARD</StorageClass>
+	</Contents>
+	<Contents>
+		<Key>test/file with+andÜ.txt</Key>
+		<LastModified>2011-07-11T13:11:09.000Z</LastModified>
+		<ETag>&quot;d33dfa987962515b9efa63489bdcf8e0&quot;</ETag>
+		<Size>56</Size>
+		<Owner>
+			<ID>1174636ee102247062773d2f4572faff7749c8a283bc5e5da8ffbff45d54744c
+			</ID>
+			<DisplayName>michael</DisplayName>
+		</Owner>
+		<StorageClass>STANDARD</StorageClass>
+	</Contents>
+</ListBucketResult>

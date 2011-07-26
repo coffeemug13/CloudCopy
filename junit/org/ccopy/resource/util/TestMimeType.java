@@ -5,10 +5,15 @@ import static org.junit.Assert.*;
 import java.net.FileNameMap;
 import java.net.URLConnection;
 
+import org.ccopy.TestSetup;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestMimeType {
-
+	@BeforeClass
+	public static void setUpBeforeClass() throws Exception {
+		TestSetup.initialSetup();
+	}
 	@Test
 	public void testValidate() {
 		String s;

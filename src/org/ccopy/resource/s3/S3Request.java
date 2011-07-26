@@ -33,7 +33,7 @@ import org.ccopy.util.HttpMethod;
  * 
  */
 public class S3Request {
-	private static Logger logger = Logger.getLogger("org.ccopy");
+	private static final Logger logger = Logger.getLogger("org.ccopy");
 	protected Proxy proxy = null;
 	protected URL url;
 	/**
@@ -171,7 +171,6 @@ public class S3Request {
 		String sign = sign(new String(pwd.getPassword()), stringToSign);
 		String authorization = "AWS " + pwd.getUserName() + ":" + sign;
 		con.addRequestProperty("Authorization", authorization);
-
 		/**
 		 * Print the request headers for logging
 		 */
@@ -219,7 +218,11 @@ public class S3Request {
 	}
 
 	/**
-	 * sign the request
+	 * Sign the request.
+	 * <p>
+	 * The first time you call this method the {@code javax.crypto.Mac} instance
+	 * is instantiated (about 200ms). Every method call afterwards takes less
+	 * then 1ms to sign the string.
 	 * 
 	 * @param yourSecretAccessKeyID
 	 * @param stringToSign

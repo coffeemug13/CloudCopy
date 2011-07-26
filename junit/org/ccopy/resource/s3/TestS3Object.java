@@ -42,7 +42,6 @@ public class TestS3Object extends TestS3InitURLs {
 	 * String with Umlaute for testing purpose
 	 */
 	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\n‰ˆ¸ƒ÷‹~@Äﬂ"; 
-		//"1234567890\nabcdefghijklmnoprstuvwxyz\n√§√∂√º√Ñ√ñ√ú~@‚Ç¨√ü";
 	private static String TEST_STRING_MD5;
 	private static int TEST_STRING_LENGTH;
 	/**
@@ -78,13 +77,6 @@ public class TestS3Object extends TestS3InitURLs {
 	@BeforeClass
 	public static void setUpBeforeClass() throws Exception {
 		TestSetup.initialSetup();
-		// set the Log Format and Level
-		ConsoleHandler ch = new ConsoleHandler();
-		ch.setLevel(Level.FINEST);
-		ch.setFormatter(new LoggingDateFormatter());
-		// add to logger
-		logger.addHandler(ch);
-		logger.setLevel(Level.FINEST);
 	}
 
 	/**

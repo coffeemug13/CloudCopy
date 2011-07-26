@@ -5,9 +5,15 @@ import static org.junit.Assert.*;
 import java.net.MalformedURLException;
 import java.net.URL;
 
+import org.ccopy.TestSetup;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 public class TestS3URL extends TestS3InitURLs {
+	@BeforeClass
+	public static void setUpBeforeClass() throws Exception {
+		TestSetup.initialSetup();
+	}
 
 	/**
 	 * Test method for {@link org.ccopy.resource.s3.S3URL#S3URL(URL)} .

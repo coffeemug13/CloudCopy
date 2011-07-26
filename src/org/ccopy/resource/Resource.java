@@ -8,6 +8,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -184,9 +185,9 @@ public abstract class Resource {
 		this.canRead = false;
 		this.canWrite = false;
 		this.exists = null; // null means is undefined, false means it doesn't exist
-		this.lastModified = -1L;
+		this.lastModified = 0L;
 		this.md5Hash = null;
-		this.size = -1;
+		this.size = 0L;
 	}
 
 	/*
@@ -542,8 +543,9 @@ public abstract class Resource {
 	 * @return an array of child resources
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException 
 	 */
-	public abstract Resource[] listResources() throws ResourceException;
+	public abstract List<Resource> listResources() throws ResourceException, IOException;
 
 	/**
 	 * Returns the name of the file or directory denoted by this Resource. This is just the last

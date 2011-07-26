@@ -41,6 +41,10 @@ public class S3URL {
 	 * S3 API
 	 */
 	private static final String S3_ENCODING = "UTF-8";
+	/**
+	 * Holds temporary queries to the S3URL
+	 */
+	private StringBuffer query;
 
 	/**
 	 * Constructs a S3URL from a String. The string will be converted to an URL with the URL parts
@@ -105,9 +109,25 @@ public class S3URL {
 	 * @throws MalformedURLException
 	 */
 	public static S3URL fromPath(String bucket, String key) throws MalformedURLException {
+		if (null != key) {
+			if (!key.startsWith(S3URL.SEPERATOR))
+				key = S3URL.SEPERATOR + key;
+		} else
+			key = S3URL.SEPERATOR;
 		return new S3URL(new URL(s3Protocol, bucket + "." + s3Host, key));
 	}
-
+	/**
+	 * Add a temporary query parameter to this S3URL. This method only affects {@link #toURL()}!
+	 * @param key
+	 * @param value
+	 */
+	public void addQuery(String key, String value) {
+		if (null == this.query) {
+			this.query = new StringBuffer();
+			this.query.append("?" + key + "=" + value);
+		} else
+			this.query.append("&" + key + "=" + value);
+	}
 	/**
 	 * Return the S3URL as a simple URL with the path element encoded after the S3 requirements
 	 * 
@@ -115,7 +135,16 @@ public class S3URL {
 	 * @return the URL with path octet-encoded
 	 */
 	public URL toURL() {
-		return url;
+		if (null == query)
+			return url;
+		else
+			try {
+				return new URL(url.getProtocol(), url.getHost(), url.getPath() + query.toString());
+			} catch (MalformedURLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				throw new Error("error while building the query-part of the S3 URL",e);
+			}
 	}
 
 	/**
