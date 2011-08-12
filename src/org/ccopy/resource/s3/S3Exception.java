@@ -85,7 +85,7 @@ public class S3Exception extends IOException {
 	 *            the detailed error message from S3
 	 */
 	public S3Exception(int errorCode, String errorMessage, String detailedErrorMessage) {
-		super(detailedErrorMessage);
+		super(errorCode + " - " + errorMessage + "; " + detailedErrorMessage);
 		this.errorCode = errorCode;
 		Logger logger = Logger.getLogger("org.ccopy");
 		logger.warning(this.getMessage());

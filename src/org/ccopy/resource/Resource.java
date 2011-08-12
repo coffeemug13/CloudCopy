@@ -5,9 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Collections;
-import java.util.HashMap;
+import java.net.URISyntaxException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -33,7 +32,7 @@ import org.ccopy.resource.util.MimeType;
  * Only the following methods of this class guarantee, that modification to properties are finally
  * persisted:
  * <ul>
- * <li>{@link Resource#createFileResource()}
+ * <li>{@link Resource#createNewFileResource()}
  * <li>{@link Resource#createDirResource()}
  * <li>{@link Resource#persistChanges()}
  * <li>{@link Resource#delete()}
@@ -60,95 +59,113 @@ public abstract class Resource {
 	/**
 	 * Tests whether this Resource supports reading and writing of custom metadata.
 	 */
-	public static boolean SUPPORTS_METADATA;
+	protected static boolean SUPPORTS_METADATA;
+	/**
+	 * Tests whether this Resource supports versioning
+	 */
+	// TODO not yet implemented
+	protected static boolean SUPPORTS_VERSIONING;
 	/**
 	 * Tests whether this Resource supports to set the lastModified timestamp manually.
 	 */
-	public static boolean SUPPORTS_SET_LASTMODIFIED;
+	protected static boolean SUPPORTS_SET_LASTMODIFIED;
 	/**
 	 * The metadata of this resource
 	 */
-	protected HashMap<String, String> attributes = null;
+//	protected HashMap<String, String> attributes = null;
+	/**
+	 * Identifies this resource.
+	 */
+	protected URI uri;
 	/**
 	 * indicates whether the resource exists (<code>true</code>) oder not (<code>false</code>).
 	 * <code>null</code> means it is unknown.
 	 */
-	protected Boolean exists = null;
+//	protected Boolean exists = null;
 	/**
-	 * indicates that the type of this resource (file or directory) is defined. This is the case
-	 * when:
+	 * indicates that the resource has been altered after constructions
+	 */
+//	protected boolean isModified;
+	/**
+	 * indicates whether the resource is of type 'file'. This flag is only meaningful in combination
+	 * of {@link #exists}.
+	 * <p>
+	 * The type of a resource is defined when:
 	 * <ul>
 	 * <li>you created this resource by {@link #listResources()}
-	 * <li>by calling {@link #createFileResource()} or {@link #createDirectoryResource()}
+	 * <li>by calling {@link #createNewFileResource()} or {@link #createDirectoryResource()}
 	 * <li>reading bytes from {@link #getInputStream()}
 	 * <li>or successfully written and closed the {@link #getOutputStream()}
 	 * <li>set the {@link #setContentType(MimeType)}
 	 * </ul>
 	 * Calling the constructor of this class does not define the type of the resource!
 	 * <p>
-	 * There is a subtle difference between {@link #exists} and {@code #isDefined}: if a resource
+	 * There is a subtle difference between {@link #exists} and {@code #isFile}: if a resource
 	 * exists it is also defined but if a resource is defined it doesn't need to exist yet.
 	 */
-	protected boolean isDefined;
+//	protected Boolean isFile;
+//	protected boolean isRoot;
+//	protected boolean canRead;
+//	protected boolean canWrite;
 	/**
-	 * indicates whether the resource is of type 'file'. This flag is only meaningful in combination
-	 * of {@link #exists}.
-	 */
-	protected boolean isFile;
-
-	protected boolean canRead;
-	protected boolean canWrite;
-	protected String md5Hash;
-	protected long size;
-	/**
-	 * Date and time the object was last modified or "-1L" when undefined
+	 * Date and time the object was last modified or "0L" when undefined
 	 * 
 	 * @see System#currentTimeMillis()
 	 */
-	protected long lastModified;
-
-	protected MimeType contentType;
+//	protected long lastModified;
 	/**
-	 * indicates that the resource has been altered after constructions or creation
+	 * The content type of this resource
 	 */
-	protected boolean isModified;
+//	protected MimeType contentType;
+	/**
+	 * The length of this resource
+	 */
+//	protected long length;
+	/**
+	 * The MD5 hash of this resource. Only a file resource has a md5 Hash.
+	 */
+//	protected String md5Hash;
 	/**
 	 * The logger for the class
 	 */
-	private static Logger logger = Logger.getLogger("org.ccopy");
+	protected static Logger logger = Logger.getLogger("org.ccopy");
 
 	/*
 	 * ############################################################ 
 	 * Constructors
 	 * ############################################################
 	 */
-	/**
-	 * Default Constructor of {@code Resource}. The implementing class must take care, that the url
-	 * get's defined
-	 */
-	protected Resource() {
-		logger.fine(null);
-	}
+//	/**
+//	 * Default Constructor of {@code Resource}. The implementing class must take care, that the url
+//	 * get's defined
+//	 */
+//	protected Resource() {
+//		logger.fine(null);
+//	}
 
 	/**
-	 * Constructor of {@code Resource} based on a {@link URL}.
+	 * Constructor of {@code Resource} based on a {@link URI}. It will 
 	 * 
 	 * @param url
 	 *        - the locator for this resource
 	 * @throws NullPointerException
 	 *         when argument is {@code null}
-	 * @throws MalformedURLException
-	 *         when the URL is invalid
+	 * @throws URISyntaxException
+	 *         when the URI is not absolute
 	 */
-	protected Resource(URL url) throws MalformedURLException {
-		if (null == url)
+	protected Resource(URI uri) throws URISyntaxException {
+		if (null == uri)
 			throw new NullPointerException("Argument must not be null");
 		if (logger.isLoggable(Level.FINE))
-			logger.fine("Resource creating for '" + url.toString() + "'");
-		// reset the properties to their inital value
+			logger.fine("Resource creating for '" + uri.toString() + "'");
+		// ensure the URI is absolute
+		if ((null == uri.getPath()) || uri.getPath().isEmpty())
+			uri = new URI(uri.getScheme(),uri.getHost(),SEPERATOR,null);
+		// set URI and reset the properties to their inital value 
+		this.uri = uri;
 		reset();
 	}
-
+	
 	/**
 	 * Constructor of {@code Resource} as child of another resource.
 	 * 
@@ -163,49 +180,52 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	protected Resource(Resource parent, String child) throws MalformedURLException {
+	protected Resource(Resource parent, String child) throws URISyntaxException {
 		if ((child == null) || (parent == null))
 			throw new NullPointerException("both arguments must not be null");
-		if (parent.isDirectory())
+		if (isFile())
 			throw new IllegalArgumentException("parent resource must be an directory");
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("Resource creating for '" + parent.toString() + "' + '" + child + "'");
-		// reset the properties to their inital value
+		// set URI and reset the properties to their inital value
+		this.uri = parent.uri.resolve(child);
 		reset();
 	}
 
 	/**
-	 * Reset the properties of the resource to their inital values
+	 * Reset the properties of the resource to their initial values
 	 */
 	protected void reset() {
 		logger.fine("reseting the resource parameters");
-		this.isDefined = false;
-		this.isFile = false;
-		this.isModified = false;
-		this.canRead = false;
-		this.canWrite = false;
-		this.exists = null; // null means is undefined, false means it doesn't exist
-		this.lastModified = 0L;
-		this.md5Hash = null;
-		this.size = 0L;
+//		this.exists = null; // null means is undefined, false means it doesn't exist
+//		this.isFile = null;
+//		this.isModified = false;
+//		this.canRead = false;
+//		this.canWrite = false;
+//		this.lastModified = 0L;
+//		this.contentType = null;
+//		this.length = 0L;
+//		this.md5Hash = null;
 	}
 
 	/*
-	 * ############################################################ 
-	 * operations which alter the physical resource and persist changes
+	 * ############################################################ operations which alter the
+	 * physical resource and persist changes
 	 * ############################################################
 	 */
 	/**
-	 * Creates a file resource according to the specification of the service implementation. This
-	 * mean typically, that the path of the resource doesn't end with a "/"
+	 * Creates a new, empty file resource according to the specification of the service
+	 * implementation. This mean typically, that the path of the resource doesn't end with a "/"
 	 * <p>
 	 * This is a guaranteed persistent operation. All prior modifications of this resource
 	 * properties are also persisted.
 	 * 
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException
+	 *             in case of general I/O problems
 	 */
-	public abstract Resource createFileResource() throws ResourceException;
+	public abstract Resource createNewFileResource() throws ResourceException, IOException;
 
 	/**
 	 * Creates a directory resource according to the specification of the service implementation.
@@ -215,21 +235,44 @@ public abstract class Resource {
 	 * properties are also persisted.
 	 * 
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
 	 * @throws IllegalArgumentException
-	 *         when you try to create a root directory
+	 *             when you try to create a root directory
+	 * @throws IOException
+	 *             in case of general I/O problems
 	 */
-	public abstract Resource createDirectoryResource() throws ResourceException;
+	public abstract Resource createDirectoryResource() throws ResourceException, IOException;
+
+	/**
+	 * Writes an InputStream to a file resource. In case the resource doesn't exist yet it will be
+	 * created on the fly. The {@link #uri} of this resource could be changed to comply to the
+	 * service specification, e.g. no trailing "/". 
+	 * <p>
+	 * This is a guaranteed persistent operation. All prior modifications of this resource
+	 * properties are also persisted.
+	 * 
+	 * @param length
+	 *            of the InputStream
+	 * @param in
+	 *            the InputStream to write to the file resource
+	 * @return the updated resource
+	 * @throws IOException
+	 *             in case of general I/O problems
+	 * @throws IllegalStateException
+	 *             when the resource is already defined as directory resource
+	 */
+	public abstract Resource write(long length, InputStream in) throws IOException;
 
 	/**
 	 * All modifications to the resource properties are persisted. This is a guaranteed persistent
 	 * operation.
 	 * 
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
-	 * @throws IOException 
+	 *             when the service behind the resource can't process the request, e.g. bad request
+	 * @throws IOException
+	 *             in case of general I/O problems
 	 * @throws IllegalStateException
-	 *         when the type of the resource is not defined; see also {@link #isDefined}
+	 *             when the type of the resource is not defined; see also {@link #isDefined}
 	 */
 	public abstract Resource persistChanges() throws ResourceException, IOException;
 
@@ -240,10 +283,12 @@ public abstract class Resource {
 	 * This is a guaranteed persistent operation. All prior modifications of this resource
 	 * properties are discarded!
 	 * 
-	 * @return
+	 * @return <code>true</code> if and only if the file or directory is successfully deleted;
+	 *         <code>false</code> otherwise
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
 	 * @throws IOException
+	 *             in case of general I/O problems
 	 */
 	public abstract boolean delete() throws ResourceException, IOException;
 
@@ -254,49 +299,55 @@ public abstract class Resource {
 	 */
 	/**
 	 * Set the metadata to this Resource. This method replaces the existing metadata of this
-	 * resource.
+	 * resource. In case this Resource doesn't {@link #supportsMetadata()} this method call is
+	 * ignored. Therefore check {@code #supportsMetadata()} if you care about the metadata!
 	 * <p>
 	 * This method is not guaranteed to be persistent. You <em>MUST</em> call one of the persistent
 	 * methods or write with an {@code ResourceOutputStream} to the resource to ensure that this
 	 * change get's persisted.
 	 * 
 	 * @param map
-	 *        the List of metadata to replace the existing; <code>null</code> purges all metadata
+	 *            the List of metadata to replace the existing; <code>null</code> purges all
+	 *            metadata
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public void setMetadata(Map<String, String> map) throws ResourceException {
-		if (map != null)
-			attributes = (HashMap<String, String>) map;
-		else
-			attributes = null;
-	}
+	public abstract void setMetadata(Map<String, String> map) throws ResourceException; // {
+//		this.isModified = true;
+//		if (map != null)
+//			attributes = (HashMap<String, String>) map;
+//		else
+//			attributes = null;
+//	}
 
 	/**
-	 * Add metadata to this Resource
+	 * Add metadata to this Resource. In case this Resource doesn't {@link #supportsMetadata()} this
+	 * method call is ignored. Therefore check {@code #supportsMetadata()} if you care about the
+	 * metadata!
 	 * <p>
 	 * This method is not guaranteed to be persistent. You <em>MUST</em> call one of the persistent
 	 * methods or write with an {@code ResourceOutputStream} to the resource to ensure that this
 	 * change get's persisted.
 	 * 
 	 * @param key
-	 *        the key of the metadata
+	 *            the key of the metadata
 	 * @param val
-	 *        the values of the metadata
+	 *            the values of the metadata
 	 * @throws NullPointerException
-	 *         when key is {@code null}
+	 *             when key is {@code null}
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public Resource addMetadata(String key, String value) throws ResourceException {
-		if (key != null) {
-			if (attributes == null)
-				attributes = new HashMap<String, String>();
-			attributes.put(key, value);
-			return this;
-		} else
-			throw new NullPointerException("Key MUST NOT be null");
-	}
+	public abstract Resource addMetadata(String key, String value) throws ResourceException; // {
+//		if (key != null) {
+//			this.isModified = true;
+//			if (attributes == null)
+//				attributes = new HashMap<String, String>();
+//			attributes.put(key, value);
+//			return this;
+//		} else
+//			throw new NullPointerException("Key MUST NOT be null");
+//	}
 
 	/**
 	 * Rename the resource. Differently to the {@code File#renameTo(File)} this resource points
@@ -314,10 +365,12 @@ public abstract class Resource {
 	 * @throws IllegalStateException
 	 *         when changing the type of the resource (file or directory) after it has been created
 	 */
-	public abstract Resource renameTo(URL dest) throws ResourceException;
+	public abstract Resource renameTo(URI dest) throws ResourceException;
 
 	/**
-	 * Sets the last-modified time of the resource.
+	 * Sets the last-modified time of the resource. In case this Resource doesn't
+	 * {@link #supportsVersioning()} this method call is ignored. Therefore check
+	 * {@code #supportsVersioning()} if you care about the timestamp!
 	 * <p>
 	 * This method is not guaranteed to be persistent. You <em>MUST</em> call one of the persistent
 	 * methods or write with an {@code ResourceOutputStream} to the resource to ensure that this
@@ -326,46 +379,43 @@ public abstract class Resource {
 	 * @see #SUPPORTS_SET_LASTMODIFIED
 	 * @see System#currentTimeMillis()
 	 * @param timestamp
-	 *        in milliseconds or "-1L" when you want to unset
-	 * @return this resource if successful
-	 * @throws IllegalStateException
-	 *         when resource doesn't support setting the lastModified time.
+	 *            in milliseconds or "0L" when you want to unset
+	 * @return this resource with new "last modified" timestamp if the resource supports this
 	 * @throws IllegalArgumentException
-	 *         when argument {@code < -1}
+	 *             when argument {@code < 0L}
 	 */
-	public Resource setLastModificationTime(long timestamp) {
-		if (!SUPPORTS_SET_LASTMODIFIED)
-			throw new IllegalStateException(
-					"setting lastModified is not supported for this resource");
-		if (timestamp < -1L)
-			throw new IllegalArgumentException("argument must be greater or equal then -1");
-		this.isModified = true;
-		this.lastModified = timestamp;
-		return this;
-
-	}
+	public abstract Resource setLastModificationTime(long timestamp); //{
+//		if (!SUPPORTS_SET_LASTMODIFIED)
+//			throw new IllegalStateException(
+//					"setting lastModified is not supported for this resource");
+//		if (timestamp < 0L)
+//			throw new IllegalArgumentException("argument must be greater or equal then -1");
+//		this.isModified = true;
+//		this.lastModified = timestamp;
+//		return this;
+//
+//	}
 
 	/**
-	 * Set the content type for this resource. In case this resource is not already created, the
-	 * type of the resource will be set to "directory", that means the resource URL will be cleaned
-	 * and {@code Resource#isDirectory()} will return <code>true</code>
+	 * Set the content type for this resource. In case this resource is already of type file or undefined, the
+	 * type of the resource will be set to {@link #isFile(true)}.
+	 * In case this Resource doesn't {@link #supportsMetadata()} this method call is
+	 * ignored. Therefore check {@code #supportsMetadata()} if you care about the metadata!
 	 * 
 	 * @param mimeType
 	 * @return
 	 * @throw IllegalStateException when this is a directory resource
 	 */
-	public Resource setContentType(MimeType mimeType) {
-		this.isModified = true;
-		if (this.isDefined) {
-			if (!this.isFile)
-				throw new IllegalStateException("Cant't set content type for directory resource");
-		} else {
-			this.isDefined = true;
-			this.isFile = true;
-		}
-		this.contentType = mimeType;
-		return this;
-	}
+	public abstract Resource setContentType(MimeType mimeType); // {
+//		this.isModified = true;
+//		if ((null != this.isFile) && this.isFile.equals(Boolean.FALSE)) {
+//			throw new IllegalStateException("Cant't set content type for directory resource");
+//		} else {
+//			this.isFile = Boolean.TRUE;
+//		}
+//		this.contentType = mimeType;
+//		return this;
+//	}
 
 	/*
 	 * ############################################################ 
@@ -374,14 +424,12 @@ public abstract class Resource {
 	 */
 	/**
 	 * Returns the content type of the resource.
-	 * <p>
-	 * In case the resource is not created, e.g. {@code Resource#createFileResource()}
 	 * 
 	 * @return the content type if known otherwise <code>null</code>
 	 */
-	public MimeType getContentType() {
-		return this.contentType;
-	}
+	public abstract MimeType getContentType(); // {
+//		return this.contentType;
+//	}
 
 	/**
 	 * Returns the value for a metadata key.
@@ -396,15 +444,15 @@ public abstract class Resource {
 	 * @throws NullPointerException
 	 *         when argument is {@code null}
 	 */
-	public String getMetadataByKey(String key) {
-		if (null != key) {
-			if (null != attributes)
-				return attributes.get(key);
-			else
-				return null;
-		} else
-			throw new NullPointerException("Argument 'key' must not be null");
-	}
+	public abstract String get(String key); // {
+//		if (null != key) {
+//			if (null != attributes)
+//				return attributes.get(key);
+//			else
+//				return null;
+//		} else
+//			throw new NullPointerException("Argument 'key' must not be null");
+//	}
 
 	/**
 	 * Returns true if this resource contains a mapping for the specified metadata key.
@@ -413,39 +461,44 @@ public abstract class Resource {
 	 *        the key whose presence is to be tested
 	 * @return true if this map contains a mapping for the specified key
 	 */
-	public boolean containsMetadataKey(String key) {
-		if (null != attributes)
-			return attributes.containsKey(key);
-		else
-			return false;
-	}
+	public abstract boolean containsKey(String key); // {
+//		if (null != attributes)
+//			return attributes.containsKey(key);
+//		else
+//			return false;
+//	}
 
 	/**
 	 * Return the {@link URL} representing this Resource.
 	 * 
 	 * @return a URL object representing this Resource, which is URLEncoded
 	 */
-	public abstract URL toURL();
+	public URI toURI(){
+		return this.uri;
+	}
 
 	/**
 	 * Return an unmodifiable Map of the metadata of the resource
 	 * 
-	 * @return a map of the resource metadata
+	 * @return a map of the resource metadata or <code>null</code> if not defined
 	 * @throws ResourceException
-	 *         when the service behind the resource can't process the request, e.g. bad request
+	 *             when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public Map<String, String> getMetadata() throws ResourceException {
-		return Collections.unmodifiableMap(attributes);
-	}
+	public abstract Map<String, String> getMetadata() throws ResourceException; // {
+//		if (null != attributes)
+//			return Collections.unmodifiableMap(attributes);
+//		else
+//			return null;
+//	}
 
 	/**
-	 * Returns the pathname of this Resource as a pathname string, e.g. "/path/to/my/resource.txt"
+	 * Returns the pathname of this Resource as a pathname string, e.g. "/path/to/my/resource.txt". 
+	 * This is a shortcut to {@code resource.toURI().toPath()} 
 	 * 
 	 * @return the pathname
 	 */
 	public String getPath() {
-		// TODO unclear whether it should be decoded first?
-		return toURL().getPath();
+		return this.uri.getPath();
 	}
 
 	/**
@@ -459,7 +512,7 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract URL getChild(String name) throws ResourceException;
+	public abstract URI getChild(String name) throws URISyntaxException;
 
 	/**
 	 * Returns a {@code Resource} representing the child resource, or <code>null</code> if no child
@@ -472,7 +525,7 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract Resource getChildResource(String name) throws ResourceException;
+	public abstract Resource getChildResource(String name) throws URISyntaxException;
 
 	/**
 	 * Returns the resource location of this abstract resource parent, or <code>null</code> if this
@@ -482,8 +535,9 @@ public abstract class Resource {
 	 *         <code>null</code> if this pathname does not name a parent
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
+	 * @throws URISyntaxException 
 	 */
-	public abstract URL getParent() throws ResourceException;
+	public abstract URI getParent() throws URISyntaxException;
 
 	/**
 	 * Returns a {@code Resource} representing the resource parent, or <code>null</code> if this
@@ -494,7 +548,7 @@ public abstract class Resource {
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 */
-	public abstract Resource getParentResource() throws ResourceException;
+	public abstract Resource getParentResource() throws URISyntaxException;
 
 	/**
 	 * Returns the time that the resource denoted by this abstract pathname was last modified.
@@ -523,9 +577,7 @@ public abstract class Resource {
 	 * 
 	 * @return
 	 */
-	public String getMD5Hash() {
-		return this.md5Hash;
-	}
+	public abstract String getMD5Hash();
 
 	/**
 	 * Returns an array of resources which are childs of this resource.
@@ -586,13 +638,34 @@ public abstract class Resource {
 	 * ############################################################
 	 */
 	/**
+	 * Tests whether this Resource supports versioning
+	 * @return
+	 */
+	public boolean supportsVersioning() {
+		return SUPPORTS_VERSIONING;
+	}
+	/**
+	 * Tests whether this Resource supports reading and writing of custom metadata.
+	 * @return
+	 */
+	public boolean supportsMetadata() {
+		return SUPPORTS_METADATA;
+	}
+	/**
+	 * Tests whether this Resource supports to set the lastModified timestamp manually.
+	 * @return
+	 */
+	public boolean supportsSetLastModified() {
+		return SUPPORTS_SET_LASTMODIFIED;
+	}
+	/**
 	 * Tests whether the application can read the resource denoted by this abstract resource
 	 * location.
 	 * 
 	 * @return <code>true</code> if and only if the resource exists <em>and</em> can be read by the
 	 *         application; <code>false</code> otherwise
 	 */
-	public abstract boolean canRead() throws ResourceException;
+	public abstract boolean canRead();
 
 	/**
 	 * Tests whether the application can modify the resource denoted by this abstract resource
@@ -600,50 +673,45 @@ public abstract class Resource {
 	 * 
 	 * @return <code>true</code> if and only if the resource exists <em>and</em> the application is
 	 *         allowed to write to the file; <code>false</code> otherwise.
-	 * @throws ResourceException
-	 *         when the request can't be performed, e.g. because of missing rights
 	 */
-	public abstract boolean canWrite() throws ResourceException;
+	public abstract boolean canWrite();
 
 	/**
 	 * Tests whether the file or directory denoted by this abstract resource location really exists.
-	 * This method will trigger requests to the background service if the type of the resource is
-	 * not yet defined.
+	 * This method will trigger requests to the background service if the existence of the resource
+	 * is not yet defined.
 	 * 
-	 * @see #isDefined
 	 * @return <code>true</code> if and only if the file or directory denoted by this abstract
 	 *         pathname exists; <code>false</code> otherwise
 	 * @throws ResourceException
-	 *         when the request can't be performed, e.g. because of missing rights
+	 *             when the request can't be performed, e.g. because of missing rights
 	 * @throws IOException
 	 * @throws SecurityException
 	 */
-	public abstract boolean exists() throws ResourceException, SecurityException, IOException;
+	public abstract boolean exists() throws IOException;
 
 	/**
 	 * Tests whether this is a directory resource.
 	 * 
-	 * @return <code>true</code> if the resource is a directory resource; <code>false</code>
-	 *         otherwise
-	 * @throws IllegalStateException
-	 *         when the type is not yet defined (see {@link #isDefined})
+	 * @return <code>true</code> if the resource {@link #exists()} <em>and</em> is a directory
+	 *         resource; <code>false</code> otherwise
 	 */
-	public boolean isDirectory() {
-		return !isFile();
-	}
+	public abstract boolean isDirectory(); // {
+//		// isDirectory is the negation of isFile
+//		return (null != this.isFile)? (!this.isFile) : false;
+//	}
 
 	/**
-	 * Tests whether this is a file resource.
+	 * Tests whether the file denoted by this abstract pathname is a normal file. A file is normal
+	 * if it is not a directory and, in addition, satisfies other system-dependent criteria. Any
+	 * resource created with {@link #createNewFileResource()} is guaranteed a normal file.
 	 * 
-	 * @return <code>true</code> if the resource is a file resource; <code>false</code> otherwise
-	 * @throws IllegalStateException
-	 *         when the type is not yet defined (see {@link #isDefined})
+	 * @return <code>true</code> if the resource {@link #exists()} <em>and</em> is a file resource;
+	 *         <code>false</code> otherwise
 	 */
-	public boolean isFile() {
-		if (!isDefined)
-			throw new IllegalStateException("type of resource not yet definied!");
-		return isFile;
-	}
+	public abstract boolean isFile(); // {
+//		return (null != this.isFile)? this.isFile : false;
+//	}
 
 	/*
 	 * ############################################################ 
@@ -659,7 +727,7 @@ public abstract class Resource {
 	 */
 	@Override
 	public boolean equals(Object obj) {
-		return toURL().equals(obj);
+		return this.uri.equals(obj);
 	}
 
 	/**
@@ -670,7 +738,7 @@ public abstract class Resource {
 	 */
 	@Override
 	public String toString() {
-		return getClass().getName() + "@" + toURL().toString();
+		return getClass().getName() + "@" + this.uri.toString();
 	}
 
 	/**
@@ -680,6 +748,9 @@ public abstract class Resource {
 	 */
 	@Override
 	public int hashCode() {
-		return toURL().hashCode();
+		return this.uri.hashCode();
 	}
+
+	public abstract boolean isRoot() throws IOException;
+
 }

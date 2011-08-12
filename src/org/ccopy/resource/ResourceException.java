@@ -3,6 +3,8 @@
  */
 package org.ccopy.resource;
 
+import java.io.IOException;
+
 /**
  * This exception indicates, that the service behind the resource can't process the request. There
  * are various reason why this can happen, e.g. request was not correct or you don't have the right
@@ -10,7 +12,7 @@ package org.ccopy.resource;
  * @author coffeemug13
  *
  */
-public class ResourceException extends Exception {
+public class ResourceException extends IOException {
 
 	/**
 	 * 

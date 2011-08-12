@@ -10,7 +10,9 @@ import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
+import java.util.Properties;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -69,9 +71,8 @@ public class TestS3Request {
 	@Test
 	public void testS3RequestGetObjectUrl() {
 		try {
-			S3URL url = new S3URL (TEST_URL_OBJECT);
+			URI url = new URI (TEST_URL_OBJECT);
 			S3Request req = new S3Request(url);
-			req.proxy = null;
 			req.setHttpMethod(HttpMethod.GET);
 			HttpURLConnection con = req.getConnection();
 			InputStream in = null;
@@ -112,7 +113,7 @@ public class TestS3Request {
 	public void testGetcanonicalizedAmzHeaders() {
 		S3Request req;
 		try {
-			req = new S3Request(new S3URL(TEST_URL_OBJECT));
+			req = new S3Request(new URI(TEST_URL_OBJECT));
 		req.addRequestHeader("x-amz-meta-Username", "value1");
 		req.addRequestHeader("X-Amz-Meta-ReviewedBy", "alice@s3.com");
 		req.addRequestHeader("x-amz-meta-checksumalgorithm ", " crc32");
@@ -130,7 +131,7 @@ public class TestS3Request {
 	public void testSign() {
 		S3Request req;
 		try {
-			req = new S3Request(new S3URL(TEST_URL_OBJECT));
+			req = new S3Request(new URI(TEST_URL_OBJECT));
 			String sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "GET\n\n\nTue, 27 Mar 2007 19:36:42 +0000\n/johnsmith/photos/puppy.jpg");
 			assertEquals(sign, "xXjDGYUmKxnwqr5KXNPGldn5LbA=");
 			sign = req.sign("uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o", "PUT\n\nimage/jpeg\nTue, 27 Mar 2007 21:15:45 +0000\n/johnsmith/photos/puppy.jpg");

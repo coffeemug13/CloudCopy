@@ -31,10 +31,12 @@ public class ResourceAuthenticator extends Authenticator {
     // This method is called when a password-protected URL is accessed
     @Override
 	public PasswordAuthentication getPasswordAuthentication() {
-        // Get information about the request
-        //logger.fine("using: " + username + " & " + passwd);
-        // Return the information
-    	// TODO implement checking for host in case we have multiple accounts
-        return new PasswordAuthentication(username, passwd.toCharArray());
-    }
+		// Get information about the request
+		// logger.fine("using: " + username + " & " + passwd);
+		// Return the information
+		if (this.getRequestingHost().equals("s3.amazonaws.com"))
+			return new PasswordAuthentication(username, passwd.toCharArray());
+		else
+			return new PasswordAuthentication(null, null);
+	}
 }

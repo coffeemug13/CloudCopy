@@ -5,7 +5,13 @@ package org.ccopy.resource.s3;
 
 import static org.junit.Assert.*;
 
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.Charset;
+import java.util.Collection;
+import java.util.List;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,42 +68,18 @@ public class TestS3Resource extends TestS3InitURLs {
 	@Test
 	public void testS3Resource_Crawling() {
 		try {
-			/**
-			 * first create the root resource to start the crawling
-			 */
+			URI bucketRoot = new S3Bucket("ccopy").toURI();
 			// construct the root for a bucket
-			Resource root = new S3Resource("ccopy", null);
+			Resource root = new S3Resource(bucketRoot);
 			// check that it exists and connect implicitly
-			if (!root.exists() && root.isDirectory())
+			if (!root.isRoot())
 				throw new Exception("wrong root resource");
 			// from here every resource "knows" already that it exists
-			// now get the child's resources
-			Resource[] childs = root.listResources();
-			// do some checks on the resource, this doesn't trigger requests to the service because
-			// status of
-			// the resource is already known (fetched from the service by listResources())
-			if (childs[1].exists() && childs[1].isDirectory())
-				System.out.println("everything is fine");
-			/**
-			 * now add a new child file resource and write something
-			 */
-			// in this case I know already, that this resource doesn't exist
-			Resource child = root.getChildResource("newChild.txt").addMetadata("key", "value")
-					.setContentType(MimeType.fromFileName("newChild.txt"))
-					.setLastModificationTime(System.currentTimeMillis() + 1000);
-			OutputStream out = child.getOutputStream();
-			// write something to the file resource and close afterwards
-			out.close();
-			/**
-			 * now add a new child file resource
-			 */
-			Resource child2 = root.getChildResource("newChild2").addMetadata("key", "value")
-					.createDirectoryResource();
-			// now continue crawling down and get the child's of one child
-			Resource[] childs2 = childs[1].listResources();
+			// start crawling
+			crawlDown(root);
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
-		}
+		}	
 	}
 
 	/**
@@ -105,26 +87,137 @@ public class TestS3Resource extends TestS3InitURLs {
 	 * {@link org.ccopy.resource.s3.S3Resource#S3Resource(org.ccopy.resource.s3.S3Resource, java.lang.String)}
 	 */
 	@Test
-	public void testS3Resource_Manipulation() {
+	public void testS3Resource_Modification() {
 		try {
+			URI bucketRoot = new S3Bucket("ccopy").toURI();
 			// first create the resource you believe it should exist
-			Resource r = new S3Resource("ccopy", "/test.txt");
+			Resource root = new S3Resource(bucketRoot);
+			Resource res = root.getChildResource("test.txt");
 			// check existence and populate implicit with metadata
-			if (!r.exists())
+			if (!res.exists())
 				throw new Exception();
 			// now do something with the resource
-			String type = null;
-			if (r.isFile())
-				type = r.getContentType().toString();
+			if (res.isFile())
+				assertEquals("text/plain",res.getContentType().toString());
 			// now change the resource and persist changes
-			if (Resource.SUPPORTS_SET_LASTMODIFIED)
-				r.setLastModificationTime(System.currentTimeMillis());
-			r.addMetadata("key", "value")
-			 .persistChanges();
+			if (res.supportsSetLastModified())
+				res.setLastModificationTime(System.currentTimeMillis());
+			String timeStamp = String.valueOf(System.currentTimeMillis());
+			res.addMetadata("key", timeStamp)
+			   .persistChanges();
+			assertEquals(timeStamp, res.get("key"));
 			// cool
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
 		}
 	}
+	@Test
+	public void testS3Resource_Modification2() {
+		try {
+			// first create the resource you believe it should exist
+			Resource res = S3Resource.getResource("ccopy","test.txt");
+			// check existence and populate implicit with metadata
+			if (!res.exists())
+				throw new Exception();
+			// now do something with the resource
+			if (res.isFile())
+				assertEquals("text/plain",res.getContentType().toString());
+			// now change the resource and persist changes
+			if (res.supportsSetLastModified())
+				res.setLastModificationTime(System.currentTimeMillis());
+			String timeStamp = String.valueOf(System.currentTimeMillis());
+			res.addMetadata("key", timeStamp)
+			   .persistChanges();
+			assertEquals(timeStamp, res.get("key"));
+			// cool
+		} catch (Exception e) {
+			fail(StringUtil.exceptionToString(e));
+		}
+	}
+	@Test
+	public void testS3Resource_Extended() {
+		try {
+			// construct the root for a bucket
+			Resource root = S3Resource.getResource("ccopy","tmp/");
+			/*
+			 * now add a new child file resource and write something
+			 */
+			// prepare some content
+			String timeStamp = String.valueOf(System.currentTimeMillis());
+			String content = "That is some content with timestamp: " + timeStamp;
+			long length = content.getBytes(Charset.forName("UTF8")).length;
+			InputStream in = StringUtil.stringToStream(content, "UTF-8");
+			// write content to resource and create resource on the fly with the metadata
+			Resource child = root.getChildResource("newChild.txt")
+			                     .addMetadata("key", timeStamp)
+//			                     .setContentType(MimeType.fromFileName("newChild.txt"))
+			                     .setLastModificationTime(System.currentTimeMillis() + 1000)
+			                     .write(length, in);
+			in.close();
+			/*
+			 * now add a second new empty child file resource
+			 */
+			Resource child2 = root.getChildResource("newChild2")
+								  .addMetadata("key", "value")
+								  .setContentType(MimeType.fromFileName("newChild.txt"))
+								  .createNewFileResource();
+			/*
+			 * now add a new child directory resource
+			 */
+			Resource child3 = root.getChildResource("newChild3")
+								  .addMetadata("key", "value")
+								  .createDirectoryResource();
+		} catch (Exception e) {
+			fail(StringUtil.exceptionToString(e));
+		}
+	}
+	@Test
+	public void testS3Resource_CrawlAndDelete() {
+		try {
+			Resource root = S3Resource.getResource("ccopy","tmp/");
+			// from here every resource "knows" already that it exists
+			// start crawling
+			crawlDownAndDelete(root);
+		} catch (Exception e) {
+			fail(StringUtil.exceptionToString(e));
+		}
+		
+	}
+	public void crawlDown(Resource root) {
+		try {
+			// now get the child's resources
+			Collection<Resource> childs = root.listResources();
+			// do some checks on the resource, this doesn't trigger requests to the service because
+			// status of the resource is already known (fetched from the service by listResources())
+			for (Resource child : childs) {
+				if (child.isDirectory()) {
+					System.out.println("----dir: " + child.getName());
+					crawlDown(child);
+				}
+				else
+					System.out.println("----file: " + child.getName());
+			}
+		} catch (Exception e) {
+			fail(StringUtil.exceptionToString(e));
+		}
+	}
 
+	private void crawlDownAndDelete(Resource root) {
+		try {
+			// now get the child's resources
+			Collection<Resource> childs = root.listResources();
+			// do some checks on the resource, this doesn't trigger requests to the service because
+			// status of the resource is already known (fetched from the service by listResources())
+			for (Resource child : childs) {
+				if (child.isDirectory()) {
+					System.out.println("----dir: " + child.getName());
+					crawlDown(child);
+				} else
+					System.out.println("----file: " + child.getName());
+				child.delete();
+			}
+		} catch (Exception e) {
+			fail(StringUtil.exceptionToString(e));
+		}
+	}
 }

@@ -29,7 +29,7 @@ public class TestS3Bucket {
 	/**
 	 * String with Umlaute for testing purpose
 	 */
-	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\näöüÄÖÜ~@€ß"; 
+	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\nï¿½ï¿½ï¿½ï¿½ï¿½ï¿½~@ï¿½ï¿½"; 
 	private static String TEST_STRING_MD5;
 	private static int TEST_STRING_LENGTH;
 	/**
@@ -72,9 +72,10 @@ public class TestS3Bucket {
 	@Test
 	public void testListObjects() {
 		try {
-			List<S3Object> list = S3Bucket.listObjects("ccopy", null, null, 1000, "/");
+			S3Bucket bucket = new S3Bucket("ccopy");
+			List<S3Object> list = bucket.listObjects(null, null);
 			// I expect 3 object, i.e. one file and two directories
-			assertEquals(3, list.size());
+			assertEquals(2, list.size());
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
 		}

@@ -5,14 +5,16 @@ package org.ccopy.resource.s3;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.URLEncoder;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.KeyStore.Builder;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.ccopy.resource.Resource;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
 import org.ccopy.util.InputStreamLogger;
@@ -25,14 +27,29 @@ public class S3Bucket {
 	private static final Logger logger = Logger.getLogger("org.ccopy");
 	private static final int DEFAULT_MAX_KEYS = 1000;
 	private String bucket;
+	private URI uri;
+	private String SERVICE_HOST = "s3.amazonaws.com";
+	private String SERVICE_SCHEMA = "https";
 	/**
 	 * Constructor of a S3Bucket
 	 * @param bucket
+	 * @throws IllegalArgumentException
 	 */
 	public S3Bucket(String bucket) {
 		this.bucket = bucket;
+		this.uri = buildURI(bucket);
 	}
-
+	
+	public S3Bucket (URI uri) {
+		this.uri = uri;
+	}
+	private URI buildURI(String bucket) {
+		try {
+			return new URI(SERVICE_SCHEMA,bucket + "." + SERVICE_HOST,"/",null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("parameter is not a valid bucket",e);
+		}
+	}
 	/**
 	 * This implementation of the GET operation returns some or all (up to 1000)
 	 * of the objects in a bucket. You can use the request parameters as
@@ -41,7 +58,7 @@ public class S3Bucket {
 	 * To use this implementation of the operation, you must have READ access to
 	 * the bucket.
 	 * 
-	 * @param bucket
+	 * @param bucketUri
 	 *            the bucketname
 	 * @param prefix
 	 *            Limits the response to keys that begin with the specified
@@ -72,7 +89,7 @@ public class S3Bucket {
 	 * @throws MalformedURLException 
 	 * @throws NullPointerException when bucket name is <code>null</code>
 	 */
-	public static List<S3Object> listObjects(String bucket, String prefix, String marker, int maxKeys, String delimiter) throws IOException {
+	public static List<S3Object> listObjects(URI bucketUri, String prefix, String marker, int maxKeys, String delimiter) throws IOException {
 		long start = 0L;
 		// log the entry of this method
 		if (logger.isLoggable(Level.FINE)) {
@@ -80,26 +97,31 @@ public class S3Bucket {
 			logger.fine(null);
 		}
 		// check the arguments
-		if (null == bucket)
-			throw new NullPointerException("Bucketname must not be null");
+		if (null == bucketUri)
+			throw new NullPointerException("Bucket URI must not be null");
 		/**
 		 * Prepare the request
 		 */
-		S3URL url;
-		try {
-			url = new S3URL("https://" + bucket + ".s3.amazonaws.com/");
-			if (null != prefix)
-				url.addQuery("prefix", URLEncoder.encode(prefix, "UTF-8"));
-			if (null != marker)
-				url.addQuery("marker", URLEncoder.encode(marker, "UTF-8"));
-			if (null != delimiter)
-				url.addQuery("delimiter", URLEncoder.encode(delimiter, "UTF-8"));
-			if (maxKeys > 0)
-				url.addQuery("max-keys", String.valueOf(maxKeys));
-		} catch (UnsupportedEncodingException e) {
-			throw new MalformedURLException(StringUtil.exceptionToString(e));
+		StringBuffer buf = new StringBuffer();
+		if ((null != prefix) && (prefix.startsWith("/"))) {
+			prefix = prefix.substring(1);
+			if ((!prefix.isEmpty()))
+				buf.append("prefix=" + prefix);
 		}
-		S3Request req = new S3Request(url);
+		if (null != marker)
+			buf.append(((buf.length() > 0) ? "&" : "") + "marker=" + marker);
+		if (null != delimiter)
+			buf.append(((buf.length() > 0) ? "&" : "") + "delimiter=" + delimiter);
+		if (maxKeys > 0)
+			buf.append(((buf.length() > 0) ? "&" : "") + "max-keys=" + String.valueOf(maxKeys));
+		try {
+			if (buf.length() > 0)
+				bucketUri = new URI(bucketUri.getScheme(), bucketUri.getHost(), "/",
+						buf.toString(), null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("can't construct the listObjects request URI", e);
+		}
+		S3Request req = new S3Request(bucketUri);
 		// init some vars, so you can grab them in exception or finally clause
 		req.setHttpMethod(HttpMethod.GET);
 		HttpURLConnection con = null;
@@ -134,7 +156,7 @@ public class S3Bucket {
 			// log success
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully listed objects for '"
-						+ bucket + ((null!= prefix)?prefix:"") + "' in '" + String.valueOf(System.currentTimeMillis()-start)+ "'ms");
+						+ bucketUri + ((null!= prefix)?prefix:"") + "' in '" + String.valueOf(System.currentTimeMillis()-start)+ "'ms");
 			// finish the method
 			return parser.list;
 		} catch (IOException e) {
@@ -159,7 +181,28 @@ public class S3Bucket {
 	 * @return
 	 * @throws IOException
 	 */
-	public static List<S3Object> listObjects(String bucket, String prefix, String marker) throws IOException {
-		return S3Bucket.listObjects(bucket, prefix, marker, S3Bucket.DEFAULT_MAX_KEYS, "/");
+	public static List<S3Object> listObjects(URI bucketUri, String prefix, String marker) throws IOException {
+		return S3Bucket.listObjects(bucketUri, prefix, marker, S3Bucket.DEFAULT_MAX_KEYS, "/");
+	}
+	public List<S3Object> listObjects(String prefix, String marker) throws IOException {
+		return S3Bucket.listObjects(this.uri, prefix, marker, S3Bucket.DEFAULT_MAX_KEYS, "/");
+	}
+	public URI toURI() {
+		return this.uri;
+	}
+	public URI getRoot(String string) {
+		return buildURI(string);
+	}
+	/**
+	 * 
+	 * @param key a valid object key; otherwise <code>null</code>
+	 * @return the URI for the object in this bucket or <code>null</code>
+	 * @throws URISyntaxException 
+	 */
+	public URI getObjectURI(String key) throws URISyntaxException {
+		if (!key.startsWith("/")) key = "/" + key;
+		// the root is not a valid object key
+		if (key.length()==1) return null;
+		return new URI(this.uri.getScheme(),this.uri.getHost(),key,null);
 	}
 }

@@ -132,8 +132,8 @@ public class S3BucketListObjectsRequestParser extends DefaultHandler {
 						// parse the possible child elements
 						if (qName.equals(S3BucketListObjectsRequestParser.KEY)) {
 							// now set the ETag attribute
-							this.s3Obj = new S3Object(S3URL.fromPath(this.bucket,
-									this.tmpValue.toString()));
+							this.s3Obj = S3Object.fromPath(this.bucket,
+									this.tmpValue.toString());
 							if (logger.isLoggable(Level.FINEST)) {
 								logBuf.append(qName + ":" + this.tmpValue.toString() + ", ");
 							}
@@ -160,8 +160,7 @@ public class S3BucketListObjectsRequestParser extends DefaultHandler {
 						// else throw new SAXException("no root element 'CopyObjectResult' found");
 					} else if (this.commonPrefixElementFound) {
 						if (qName.equals(S3BucketListObjectsRequestParser.PREFIX))
-							this.list.add(new S3Object(S3URL.fromPath(this.bucket, this.prefix
-									+ this.tmpValue.toString())));
+							this.list.add(S3Object.fromPath(this.bucket, this.tmpValue.toString()));
 					} else if (qName.equals(S3BucketListObjectsRequestParser.NAME)) {
 						this.bucket = this.tmpValue.toString();
 					} else if (qName.equals(S3BucketListObjectsRequestParser.PREFIX)) {

@@ -4,14 +4,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.URISyntaxException;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ccopy.resource.ResourceError;
 import org.ccopy.resource.util.MimeType;
 import org.ccopy.resource.util.StringUtil;
 import org.ccopy.util.HttpMethod;
@@ -23,12 +26,24 @@ import org.ccopy.util.InputStreamLogger;
  * @author coffeemug13
  */
 public class S3Object {
+	/**
+	 * The size of the byte array, which holds the chunks from the InputStream
+	 */
+	private static final int STREAM_BYTE_BUFFER = 100;
 	private static Logger logger = Logger.getLogger("org.ccopy");
-	static public String delimiter = "/";
+	public static final String DELIMITER = "/";
+	/**
+	 * the default hostname for S3
+	 */
+	private static final String s3Host = "s3.amazonaws.com";
+	/**
+	 * the default protocol for request.
+	 */
+	private static final String s3Protocol = "https";
 	/**
 	 * the url representing this object in S3
 	 */
-	protected S3URL url;
+	protected URI uri;
 	// protected HashMap<String, String> meta = null;
 	/**
 	 * contains the response headers from amazon, in case we made a GET or HEAD to the object
@@ -53,11 +68,39 @@ public class S3Object {
 	protected long size;
 
 	/**
-	 * Constructor for S3Object
+	 * Constructor for S3Object. 
+	 * 
+	 * @param uri
+	 *            - An absolute, hierarchical URI with a scheme equal to "http" or "https", a
+	 *            non-empty authority and path component, and undefined query, and fragment
+	 *            components. The authority must not contain a user-info.
+	 * @throws NullPointerException
+	 *             - If uri is {@link NullPointerException}
 	 */
-	protected S3Object(S3URL url) {
+	private S3Object(URI uri) {
+		if (null == uri)
+			throw new NullPointerException("argument must not be null");
 		logger.fine(null);
-		this.url = url;
+		this.uri = uri;
+//		this.isFile = (uri.getPath().endsWith("/"))?false:true;
+	}
+	protected S3Object(S3Response response) {
+		S3Object obj = new S3Object(response.getUri());
+		obj.eTag = response.getETag();
+		obj.lastModified = response.getLastModified();
+		// TODO implement versioning
+	}
+	protected void updateByResponse(S3Response response) {
+		// make array modifiable if not already
+		if (this.responseHeader.getClass().getName().contains("Unmodifiable")) {
+			this.responseHeader = new HashMap<String, List<String>>(this.responseHeader);
+		}
+		this.responseHeader.putAll(response.responseHeader);
+		boolean b;
+//		if (!uri.equals(response.getUri())) uri = response.getUri();
+//		if (null != response.getETag()) eTag = response.getETag();
+//		if (lastModified != response.getLastModified()) lastModified = response.getLastModified();
+//		if (!uri.equals(response.getUri())) uri = response.getUri();
 	}
 
 	/**
@@ -70,49 +113,58 @@ public class S3Object {
 	 *            the <code>URL</code> of the S3 object
 	 * @param versionId
 	 *            the versionId or null
-	 * @return the requested S3 object
+	 * @return the requested S3 object with all meta information
 	 * @throws S3Exception
 	 *             to handle S3 errors
 	 * @throws IOException
 	 *             in case of general connection problems
 	 */
-	static public S3Object getObject(S3URL url, String versionId) throws IOException {
+	static public S3Object getObject(URI uri, String versionId) throws IOException {
 		long start = 0L;
 		// log the entry of this method
 		if (logger.isLoggable(Level.FINE)) {
 			start = System.currentTimeMillis();
 			logger.fine(null);
 		}
+		// check arguments
+		if (null == uri)
+			throw new NullPointerException("parameter uri must not be null");
 		/**
 		 * Prepare the request
 		 */
-		S3Request req = new S3Request(url);
+		S3Request req;
+		// add query with versionID if provided
+		try {
+			if (null != versionId)
+				uri = new URI(uri.getScheme(), uri.getAuthority(), uri.getPath(), "versionID="
+						+ versionId, null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("can't construct a new URI including a versionID", e);
+		}
+		// create the request
+		req = new S3Request(uri);
 		// init some vars, so you can grab them in exception or finally clause
 		req.setHttpMethod(HttpMethod.GET);
 		HttpURLConnection con = null;
 		/**
 		 * Process the request
 		 */
-		try {
-			con = req.getConnection();
-			S3Object obj = new S3Object(url);
-			// Set the attributes of the object
-			obj.setResponseHeaders(con.getHeaderFields());
-			obj.con = con;
-			if (logger.isLoggable(Level.FINEST)) {
-				StringBuffer buf = new StringBuffer();
-				buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
-				logger.finest(buf.toString());
-			}
-			if (logger.isLoggable(Level.FINE)) {
-				logger.fine("Successfully read metadata and opened InputStream for S3 object to '"
-						+ url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
-			}
-			return obj;
-		} finally {
-			// DON'T close the 'con' in this case, because you loose connection
-			// to read the InputStream later
-		}
+		con = req.getConnection();
+		S3Object obj = new S3Object(req.toURI());
+		// Set the attributes of the object
+//		obj.setResponseHeaders(con.getHeaderFields());
+		obj.responseHeader = con.getHeaderFields();
+		// pass the open connection
+		obj.con = con;
+		// log something
+		if (logger.isLoggable(Level.FINEST))
+			logger.finest("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+		if (logger.isLoggable(Level.FINE))
+			logger.fine("Successfully read metadata and opened InputStream for S3 object to '"
+					+ uri.toString() + "' in '"
+					+ String.valueOf(System.currentTimeMillis() - start) + "'ms");
+		// finish the method and return
+		return obj;
 	}
 
 	/**
@@ -171,7 +223,7 @@ public class S3Object {
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
-	static public S3Object getHeadObject(S3URL url, String versionId) throws IOException {
+	static public S3Object getHeadObject(URI uri, String versionId) throws IOException {
 		long start = 0L;
 		// log the entry of this method
 		if (logger.isLoggable(Level.FINE)) {
@@ -179,12 +231,22 @@ public class S3Object {
 			logger.fine(null);
 		}
 		// check arguments
-		if (null == url)
-			throw new NullPointerException("url must not be null");
+		if (null == uri)
+			throw new NullPointerException("parameter uri must not be null");
 		/**
 		 * Prepare the request
 		 */
-		S3Request req = new S3Request(url);
+		S3Request req;
+		// add query with versionID if provided
+		try {
+			if (null != versionId)
+				uri = new URI(uri.getScheme(), uri.getAuthority(), uri.getPath(), "versionID="
+						+ versionId, null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("can't construct a new URI including a versionID", e);
+		}
+		// create the request
+		req = new S3Request(uri);
 		req.setHttpMethod(HttpMethod.HEAD);
 		// init some vars, so you can grab them in exception or finally clause
 		HttpURLConnection con = null;
@@ -192,18 +254,17 @@ public class S3Object {
 		 * Process the request
 		 */
 		con = req.getConnection();
-		S3Object obj = new S3Object(url);
+		S3Object obj = new S3Object(req.toURI());
 		// Set the attributes of the object
-		obj.setResponseHeaders(con.getHeaderFields());
+//		obj.setResponseHeaders(con.getHeaderFields());
+		obj.responseHeader = con.getHeaderFields();
 		// log some infos
-		if (logger.isLoggable(Level.FINEST)) {
-			StringBuffer buf = new StringBuffer();
-			buf.append("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
-			logger.finest(buf.toString());
-		} else if (logger.isLoggable(Level.FINE)) {
-			logger.fine("Successfully read metadata from S3 object to '" + url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
-		}
-		// finish the method
+		if (logger.isLoggable(Level.FINEST))
+			logger.finest("S3 response headers:\n" + StringUtil.mapToString(obj.responseHeader));
+		else if (logger.isLoggable(Level.FINE))
+			logger.fine("Successfully read metadata from S3 object to '" + uri.toString()
+					+ "' in '" + String.valueOf(System.currentTimeMillis() - start) + "'ms");
+		// finish the method and return
 		return obj;
 	}
 
@@ -227,8 +288,8 @@ public class S3Object {
 	 * @throws IOException
 	 *         in case of general connection problems
 	 */
-	static public S3Response putObject(S3URL url, Map<String, String> meta2, MimeType contentType,
-			int contentLength, InputStream in) throws IOException {
+	static public S3Response putObject(URI uri, Map<String, String> meta, MimeType contentType,
+			long contentLength, InputStream in) throws IOException {
 		long start = 0L;
 		// log the entry of this method
 		if (logger.isLoggable(Level.FINE)) {
@@ -236,17 +297,16 @@ public class S3Object {
 			logger.fine(null);
 		}
 		// perform some checks
-		if (null == in)
-			throw new NullPointerException("InputStream may not be null");
-		if (null == url)
-			throw new NullPointerException("URL may not be null");
-		if (url.getPath().getBytes().length > 1024)
+		if ((null == uri) || ((null == in) && contentLength>0))
+			throw new NullPointerException("parameter 'uri' and 'in' may not be null");
+		if (uri.getPath().getBytes().length > 1024)
 			throw new IllegalArgumentException(
 					"The path of the URL (= the S3 key) exceeds 1024 Bytes");
 		/**
 		 * Prepare the request
 		 */
-		S3Request req = new S3Request(url);
+		S3Request req;
+		req = new S3Request(uri);
 		// this is a PUT request
 		req.setHttpMethod(HttpMethod.PUT);
 		// you can't set the "Content-Length" attribute via addRequestHeader
@@ -254,11 +314,9 @@ public class S3Object {
 		// content type is mandatory for this request!
 		if (null != contentType)
 			req.setContentType(contentType.toString());
-		else
-			req.setContentType(MimeType.DEFAULT);
 		// now set some header attributes if available
-		if (null != meta2) {
-			for (Entry<String, String> entry : meta2.entrySet()) {
+		if (null != meta) {
+			for (Entry<String, String> entry : meta.entrySet()) {
 				req.addRequestHeader(entry.getKey(), entry.getValue());
 			}
 		}
@@ -274,27 +332,28 @@ public class S3Object {
 			con = req.getConnection();
 			out = con.getOutputStream();
 			// read the InputStream in chunks and write them to S3 OutputStream
-			byte[] c = new byte[100]; // with increasing value speed goes up
+			byte[] c = new byte[STREAM_BYTE_BUFFER]; // with increasing value speed goes up
 			int read, lastRead = 0;
 			int readCounter = 0; // count the Bytes which are processed
-			// Read (and print) till end of file.
-			while ((read = in.read(c)) != -1) {
-				out.write(c, 0, read);
-				readCounter += read;
-				if (read != -1)
-					lastRead = read;
+			if (contentLength > 0) {
+				// Read (and print) till end of file.
+				while ((read = in.read(c)) != -1) {
+					out.write(c, 0, read);
+					readCounter += read;
+					if (read != -1)
+						lastRead = read;
+				}
 			}
 			// Workaround!!, because in case of a HTTP PUT you MUST check
 			// con.responseCode AFTER the upload otherwise you would implicit
 			// close the connection BEFORE you upload the content which ends in
 			// an HTTP error 400 - EntityTooSmall
 			// response = new S3Response(, con.getHeaderFields());
-			int res;
-			if ((res = con.getResponseCode()) >= 300) {
+			if ((con.getResponseCode()) >= 300) {
 				throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 						StringUtil.streamToString(con.getErrorStream()));
 			} else
-				response = new S3Response(con.getResponseCode(), con.getHeaderFields());
+				response = new S3Response(req.toURI(),con.getResponseCode(), con.getHeaderFields());
 			// log the last written line to the logger
 			if (logger.isLoggable(Level.FINEST)) {
 				StringBuffer buf = new StringBuffer();
@@ -305,7 +364,7 @@ public class S3Object {
 			}
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully written '" + readCounter + "' Bytes to '"
-						+ url.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
+						+ uri.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
 			// finish the method
 			return response;
 		} finally {
@@ -337,13 +396,13 @@ public class S3Object {
 	 * @see <a
 	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectCOPY.html">Amazon
 	 *      Simple Storage Service - API Reference</a>
-	 * @param fromUrl
-	 * @param toUrl
+	 * @param sourceUri
+	 * @param targetUri
 	 * @param meta
 	 * @param contentType
 	 * @return
 	 */
-	public static S3Response copyObject(S3URL fromUrl, S3URL toUrl, Map<String, String> meta,
+	public static S3Response copyObject(URI sourceUri, URI targetUri, Map<String, String> meta,
 			MimeType contentType) throws IOException {
 		long start = 0L;
 		// log the entry of this method
@@ -352,15 +411,16 @@ public class S3Object {
 			logger.fine(null);
 		}
 		// perform some checks
-		if ((null == fromUrl) || (null == toUrl))
-			throw new NullPointerException("URL may be not be null");
-		// check whether to make a "REPLACE" call, see S3 documentation
+		if ((null == sourceUri) || (null == targetUri))
+			throw new NullPointerException("parameter sourceUri and targetUri must not be null");
 		/**
 		 * Prepare the request
 		 */
-		S3Request req = new S3Request(toUrl);
+		S3Request req;
+		req = new S3Request(targetUri);
 		// this is a PUT request
 		req.setHttpMethod(HttpMethod.PUT);
+		req.setContentType(contentType.toString());
 		// you can't set the "Content-Length" attribute via addRequestHeader
 		// we don't stream content, just headers
 		req.setFixedLengthStreamingMode(0); 
@@ -371,12 +431,13 @@ public class S3Object {
 			}
 		}
 		// set a special directive according to S3 API
+		// and encode special character of URI
 		req.addRequestHeader(S3Headers.X_AMZ_COPY_SOURCE,
-				S3Request.getCanonicalizedResource(fromUrl.toURL()));
+				S3Request.getCanonicalizedResource(new URL(sourceUri.toASCIIString())));
 		// if the URLs are equal, than set according to S3 API the header
 		// "x-amz-metadata-directive" with "REPLACE" otherwise you get an
 		// error from S3. See the S3 API documentation
-		if (fromUrl.equals(toUrl) || (null!= meta))
+		if (sourceUri.equals(targetUri) || (null!= meta))
 			req.addRequestHeader(S3Headers.X_AMZ_METADATA_DIRECTIVE, "REPLACE");
 		else
 			req.addRequestHeader(S3Headers.X_AMZ_METADATA_DIRECTIVE, "COPY");
@@ -404,10 +465,10 @@ public class S3Object {
 			// read the InputStream in chunks and write
 			S3ObjectCopyRequestParser parser = new S3ObjectCopyRequestParser(in);
 			// create the response object
-			response = new S3Response(con.getResponseCode(),
-					con.getHeaderFields());
-			response.lastModified = parser.lastModified;
-			response.eTag = parser.eTag;
+			response = new S3Response(req.toURI(),con.getResponseCode(),con.getHeaderFields());
+			response.setLastModified(parser.lastModified);
+			response.setETag(parser.eTag);
+			response.updateByList(meta);
 			// Workaround!!, because in case of a HTTP PUT you MUST check
 			// con.responseCode AFTER the upload otherwise you would implicit
 			// close the connection BEFORE you upload the content which ends in
@@ -419,7 +480,7 @@ public class S3Object {
 			// log success
 			if (logger.isLoggable(Level.FINE))
 				logger.fine("Successfully copied/modified object from '"
-						+ fromUrl.toString() + "' to '" + toUrl.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+ "'ms\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
+						+ sourceUri.toString() + "' to '" + targetUri.toString() + "' in '" + String.valueOf(System.currentTimeMillis()-start)+ "'ms\nwith LastModified:'" + parser.lastModified + "' and ETag:'" + parser.eTag + "'");
 			// finish the method
 			return response;
 		} catch (IOException e) {
@@ -438,20 +499,23 @@ public class S3Object {
 	}
 
 	/**
-	 * This is a convinient method for {@code deleteObjectVersion(url,null)}.
+	 * Deletes an S3 object from the bucket. In case the bucket is under versioning, this operation
+	 * will create a new S3 object with new versionId, <code>x-amz-delete-marker: true</code> and
+	 * zero content.
 	 * 
-	 * @see org.ccopy.resource.s3.S3Object#deleteObjectVersion(URL, String)
-	 * @param url
-	 *        the <code>URL</code> to the S3 object
-	 * @return the new versionId in case the bucket versioning is enabled; <code>null</code>
-	 *         otherwise.
+	 * @see <a
+	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectDELETE.html">Amazon
+	 *      Simple Storage Service - API Reference</a>
+	 * @param uri
+	 * @return S3Response information with the new versionId of the deleted object in case the
+	 *         bucket is under versioning
 	 * @throws S3Exception
-	 *         to handle S3 errors
+	 *             to handle S3 errors
 	 * @throws IOException
-	 *         in case of general connection problems
+	 *             in case of general connection problems
 	 */
-	static public S3Response deleteObject(S3URL url) throws IOException, S3Exception {
-		return deleteObjectVersion(url, null);
+	static public S3Response deleteObject(URI uri) throws IOException, S3Exception {
+		return deleteObjectVersion(uri, null);
 	}
 
 	/**
@@ -462,16 +526,18 @@ public class S3Object {
 	 * @see <a
 	 *      href="http://docs.amazonwebservices.com/AmazonS3/2006-03-01/API/RESTObjectDELETE.html">Amazon
 	 *      Simple Storage Service - API Reference</a>
-	 * @param url
+	 * @param uri
 	 * @param versionId
-	 * @return the new versionId of the deleted object or {@code null} in case the bucket is not
-	 *         under versioning
+	 *            the version of the resource you want to delete or <code>null</code> for the latest
+	 *            version
+	 * @return S3Response information with the new versionId of the deleted object in case the
+	 *         bucket is under versioning
 	 * @throws S3Exception
-	 *         to handle S3 errors
+	 *             to handle S3 errors
 	 * @throws IOException
-	 *         in case of general connection problems
+	 *             in case of general connection problems
 	 */
-	static public S3Response deleteObjectVersion(S3URL url, String versionId) throws IOException,
+	static public S3Response deleteObjectVersion(URI uri, String versionId) throws IOException,
 			S3Exception {
 		long start = 0L;
 		// log the entry of this method
@@ -479,10 +545,23 @@ public class S3Object {
 			start = System.currentTimeMillis();
 			logger.fine(null);
 		}
+		// check arguments
+		if (null == uri)
+			throw new NullPointerException("parameter uri must not be null");
 		/**
 		 * Prepare the request
 		 */
-		S3Request req = new S3Request(url);
+		S3Request req;
+		// add query with versionID if provided
+		try {
+			if (null != versionId)
+				uri = new URI(uri.getScheme(), uri.getAuthority(), uri.getPath(), "?versionID="
+						+ versionId, null);
+		} catch (URISyntaxException e) {
+			throw new IllegalArgumentException("can't construct a new URI including a versionID", e);
+		}
+		// create request
+		req = new S3Request(uri);
 		req.setHttpMethod(HttpMethod.DELETE);
 		// init some vars, so you can grab them in the finally clause
 		HttpURLConnection con = null;
@@ -492,28 +571,23 @@ public class S3Object {
 		 */
 		con = req.getConnection();
 		// check response code
-		int res;
-		if ((res = con.getResponseCode()) >= 300) {
+		if ((con.getResponseCode()) >= 300) {
 			throw new S3Exception(con.getResponseCode(), con.getResponseMessage(),
 					StringUtil.streamToString(con.getErrorStream()));
 		} else
-			response = new S3Response(con.getResponseCode(), con.getHeaderFields());
+			response = new S3Response(req.toURI(),con.getResponseCode(), con.getHeaderFields());
 		// log some infos
-		if (logger.isLoggable(Level.FINEST)) {
-			StringBuffer buf = new StringBuffer();
-			buf.append("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
-			logger.finest(buf.toString());
-		}
-		if (logger.isLoggable(Level.FINE)) {
-			logger.fine("Successfully deleted S3 object '" + url.toString() + "' with version '"
+		if (logger.isLoggable(Level.FINEST)) 
+			logger.finest("S3 response headers:\n" + StringUtil.mapToString(con.getHeaderFields()));
+		if (logger.isLoggable(Level.FINE)) 
+			logger.fine("Successfully deleted S3 object '" + uri.toString() + "' with version '"
 					+ versionId + "' in '" + String.valueOf(System.currentTimeMillis()-start)+"'ms");
-		}
 		// finish the method
 		return response;
 	}
 
 	/**
-	 * Tests whether the object can be read under this URL.
+	 * Tests whether the object can be read under this URI.
 	 * 
 	 * @return <code>true</code> if the object exists AND can be read; <code>false</code> otherwise
 	 */
@@ -522,7 +596,7 @@ public class S3Object {
 	}
 
 	/**
-	 * Tests whether the object can be written under this URL.
+	 * Tests whether the object can be written under this URI.
 	 * 
 	 * @return <code>true</code> if the object exists AND can be written; <code>false</code> otherwise
 	 */
@@ -532,23 +606,32 @@ public class S3Object {
 	}
 
 	/**
-	 * Tests whether the object exists under this URL.
+	 * Tests whether the object exists under this URI.
 	 * 
 	 * @return <code>true</code> if the object exists, <code>false</code> if the resource
 	 *         doesn't exist or <code>null</code> if it's unknown whether the
 	 *         object exists, e.g. because of IO connection problems
 	 */
 	public boolean exists() {
-		return (null != responseHeader) ? true : false;
+		return (!this.isDeleted()) ? true : false;
 	}
-
+	/**
+	 * Tests whether the object has been deleted. If a bucket 
+	 * @return
+	 */
+	public boolean isDeleted() {
+		return ((null != responseHeader) && 
+				(responseHeader.containsKey(S3Headers.X_AMZ_DELETE_MARKER.toString()))) ? true : false;
+	}
 	/**
 	 * Returns the content length of the object.
 	 * 
 	 * @return length of the object if it exists; otherwise <code>0L</code> 
 	 */
 	public long getContentLength() {
-		return this.size;
+		if (null != responseHeader) {
+				return Long.parseLong(this.responseHeader.get(S3Headers.CONTENT_LENGTH).get(0));
+		} else return 0L;
 	}
 
 	/**
@@ -558,13 +641,13 @@ public class S3Object {
 	 * @return the content type if the object exist; otherwise <code>null</code>
 	 *         if the file does not exist or the content type is not set
 	 */
-	public String getContentType() {
-		if (null != responseHeader) {
-			List<String> list = responseHeader.get(S3Headers.CONTENT_TYPE);
-			return (null!=list)?list.get(0):null;
-		} else
-			return null;
-	}
+//	public String getContentType() {
+//		if (null != responseHeader) {
+//			List<String> list = responseHeader.get(S3Headers.CONTENT_TYPE);
+//			return (null!=list)?list.get(0):null;
+//		} else
+//			return null;
+//	}
 
 	/**
 	 * Returns the content encoding of this object. This is an optional attribute and must be set
@@ -617,7 +700,11 @@ public class S3Object {
 	 *         file does not exist
 	 */
 	public String getETag() {
-		return this.eTag;
+		if (null != responseHeader) {
+			String etag = responseHeader.get(S3Headers.ETAG).get(0);
+			return etag.substring(1,etag.length()-1);
+		} else
+			return null;
 	}
 
 	/**
@@ -649,33 +736,84 @@ public class S3Object {
 	 * 
 	 * @param responseHeader
 	 */
-	protected void setResponseHeaders(Map<String, List<String>> responseHeader) {
-		// now set the response header
-		this.responseHeader = responseHeader;
-		if (null != responseHeader) {
-			// extract last modification time
-			this.lastModified = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
-					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : -1L;
-			// extract the content size
-			this.size = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
-					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : -1L;
-			// extract the ETag
-			if (responseHeader.containsKey(S3Headers.ETAG)) {
-				this.eTag = responseHeader.get(S3Headers.ETAG).get(0);
-				this.eTag = this.eTag.substring(1, this.eTag.length() - 1);
-			}
-		} 
-	}
-	public boolean isFile() {
-		return url.isFile;
-	}
+//	private void setResponseHeaders(Map<String, List<String>> responseHeader) {
+//		// now set the response header
+//		this.responseHeader = responseHeader;
+//		if (null != responseHeader) {
+//			// extract last modification time
+//			this.lastModified = (responseHeader.containsKey(S3Headers.LAST_MODIFIED)) ? Integer
+//					.parseInt(responseHeader.get(S3Headers.LAST_MODIFIED).get(0)) : 0L;
+//			// extract the content size
+//			this.size = (responseHeader.containsKey(S3Headers.CONTENT_LENGTH)) ? Integer
+//					.parseInt(responseHeader.get(S3Headers.CONTENT_LENGTH).get(0)) : 0L;
+//			// extract the ETag
+//			if (responseHeader.containsKey(S3Headers.ETAG)) {
+//				this.eTag = responseHeader.get(S3Headers.ETAG).get(0);
+//				this.eTag = this.eTag.substring(1, this.eTag.length() - 1);
+//			}
+//		} 
+//	}
+//	public boolean isFile() {
+//		return this.isFile;
+//	}
 	
-	public boolean isDirectory() {
-		return !url.isFile;
-	}
+//	public boolean isDirectory() {
+//		return !this.isFile();
+//	}
 
 	public URL getURL() {
-		return this.url.toURL();
+		try {
+			return this.uri.toURL();
+		} catch (MalformedURLException e) {
+			e.printStackTrace();
+			throw new Error("error converting URI to URL");
+		}
+	}
+	/**
+	 * Return the containing bucket
+	 * @return
+	 */
+	public S3Bucket getBucket() {
+		try {
+			return new S3Bucket(new URI(this.uri.getScheme(),this.uri.getHost(),"/",null));
+		} catch (URISyntaxException e) {
+			e.printStackTrace();
+			throw new Error("error constructing bucket URI for this object");
+		}
 	}
 
+	
+	private void makeModifiable()  {
+		// make array modifiable if not already
+		if (this.responseHeader.getClass().getName().contains("Unmodifiable")) {
+			this.responseHeader = new HashMap<String, List<String>>(this.responseHeader);
+		}
+	}
+	public String get(String key) {
+		return StringUtil.join(this.responseHeader.get(key));
+	}
+	public boolean containsKey(String key) {
+		return this.responseHeader.containsKey(S3Headers.X_AMZ_META.toString() + key);
+	}
+	/**
+	 * Return the content type of the S3 Object
+	 * @return the content type or <code>null</code>
+	 */
+	public String getContentType() {
+		return responseHeader.get(S3Headers.CONTENT_TYPE).get(0);
+	}
+
+	public static S3Object fromPath(String bucket, String key) throws MalformedURLException {
+		if (null == key) 
+			key = DELIMITER;
+		if (!key.startsWith(DELIMITER))
+			key = DELIMITER + key;
+		try {
+//			URI u = new URI(s3Protocol, bucket + "." + s3Host, key,null);
+//			return new S3Object(u);
+			return new S3Object(new URI(s3Protocol, bucket + "." + s3Host, key,null));
+		} catch (URISyntaxException e) {
+			throw new MalformedURLException(e.toString());
+		}
+	}
 }

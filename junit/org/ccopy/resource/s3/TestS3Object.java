@@ -13,7 +13,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetEncoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
@@ -26,6 +30,7 @@ import org.ccopy.TestSetup;
 import org.ccopy.resource.util.LoggingDateFormatter;
 import org.ccopy.resource.util.MimeType;
 import org.ccopy.resource.util.StringUtil;
+import org.ccopy.util.HttpMethod;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -41,7 +46,7 @@ public class TestS3Object extends TestS3InitURLs {
 	/**
 	 * String with Umlaute for testing purpose
 	 */
-	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\n‰ˆ¸ƒ÷‹~@Äﬂ"; 
+	private static final String TEST_STRING = "1234567890\nabcdefghijklmnoprstuvwxyz\n√§√∂√º√Ñ√ñ√ú~@‚Ç¨√ü"; 
 	private static String TEST_STRING_MD5;
 	private static int TEST_STRING_LENGTH;
 	/**
@@ -119,9 +124,9 @@ public class TestS3Object extends TestS3InitURLs {
 		try {
 			Map<String, String> meta = new HashMap<String, String>();
 			meta.put(S3Headers.X_AMZ_META + "custom", "attribute");
-			S3Response res = S3Object.putObject(new S3URL(TMP_URL), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+			S3Response res = S3Object.putObject( TMP_URI_FILE,meta, MimeType.fromFileName(FILENAME),
 					TEST_STRING_LENGTH, new FileInputStream(file));
-			res = S3Object.putObject(new S3URL(TMP_URL_WITH_UMLAUT), meta, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+			res = S3Object.putObject( TMP_URI_FILE_WITH_PATH_AND_UMLAUT,meta, MimeType.fromFileName(FILENAME_WITH_UMLAUTE),
 					TEST_STRING_LENGTH, new FileInputStream(file));
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
@@ -149,21 +154,21 @@ public class TestS3Object extends TestS3InitURLs {
 			// put a S3 object with a key >1024 Byte
 			try {
 				String s = "ThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongKeyIMeanReallyLongKeyThisIsAVeryLongK";
-				res = S3Object.putObject(new S3URL(TEST_URL_S3 + s + "1"), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(new URI(URL_S3 + s + "1"), null, MimeType.fromFileName(FILENAME),
 						TEST_STRING_LENGTH, new FileInputStream(file));
 				fail("URL with to long key not catched");
 			} catch (IllegalArgumentException e) { /* that is the expected Exception	*/ }
 			
 			// put a S3 object but don't provide a InputStream
 			try {
-				res = S3Object.putObject(new S3URL(TMP_URL), null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(TMP_URI_FILE, null, MimeType.fromFileName(FILENAME),
 						TEST_STRING_LENGTH, null);
 				fail("missing InputStream not catched");
 			} catch (NullPointerException e) { /* that is the expected Exception	*/ }
 			
 			// put a S3 object but don't provide a URL
 			try {
-				res = S3Object.putObject(null, null, MimeType.fromFileName(TEST_URL_FILE_FILENAME),
+				res = S3Object.putObject(null, null, MimeType.fromFileName(FILENAME),
 						TEST_STRING_LENGTH, new FileInputStream(file));
 				fail("missing InputStream not catched");
 			} catch (NullPointerException e) { /* that is the expected Exception	*/ }
@@ -181,7 +186,7 @@ public class TestS3Object extends TestS3InitURLs {
 	@Test
 	public void testGetHeadObject() {
 		try {
-			S3Object obj = S3Object.getHeadObject(new S3URL(TMP_URL), null);
+			S3Object obj = S3Object.getHeadObject(TMP_URI_FILE, null);
 			assertTrue(obj.exists());
 			assertTrue(obj.canRead());
 			assertTrue("Content-Length", TEST_STRING_LENGTH == obj.getContentLength());
@@ -198,21 +203,21 @@ public class TestS3Object extends TestS3InitURLs {
 	 */
 	@Test
 	public void testGetHeadObject_Extended() {
-		// test a complete wrong URL
-		try {
-			// S3Object obj = S3Object.getHeadObject(new
-			// URL("http://www.heise.de/dd"),
-			S3Object obj = S3Object.getHeadObject(new S3URL(TMP_URL), null);
-		} catch (FileNotFoundException e) {
-			// that error is correct, continue testing
-		} catch (Exception e) {
-			fail(StringUtil.exceptionToString(e));
-		}
+		// TODO V2 test a complete wrong URL
+//		try {
+//			S3Object obj = S3Object.getHeadObject(new URI("http://s3.amazonaws.com"), null);
+//		} catch (FileNotFoundException e) {
+//			// that error is correct, continue testing
+//		} catch (Exception e) {
+//			fail(StringUtil.exceptionToString(e));
+//		}
 		// test FileNotFound
 		try {
-			S3Object obj = S3Object.getHeadObject(new S3URL(TMP_URL), null);
-		} catch (FileNotFoundException e) {
-			// that error is correct, continue testing
+			S3Object obj = S3Object.getHeadObject(TMP_URI_FILE_NOT_FOUND, null);
+		} catch (S3Exception e) {
+			if (HttpURLConnection.HTTP_NOT_FOUND != e.getErrorCode())
+				fail(StringUtil.exceptionToString(e));
+			// else: that error is correct, continue testing
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
 		}
@@ -227,7 +232,7 @@ public class TestS3Object extends TestS3InitURLs {
 	public void testGetObject() {
 		try {
 			// connect to the S3 object
-			S3Object obj = S3Object.getObject(new S3URL(TMP_URL), null);
+			S3Object obj = S3Object.getObject(TMP_URI_FILE, null);
 			// now check the metadata
 			assertTrue("object exists",obj.exists());
 			assertTrue("object can be read",obj.canRead());
@@ -235,6 +240,11 @@ public class TestS3Object extends TestS3InitURLs {
 			assertEquals("check md5hash",TEST_STRING_MD5, obj.getETag());
 			// then compare the content of the object
 			assertEquals("compare content",TEST_STRING, StringUtil.streamToString(obj.getInputStream()));
+			
+			// connect to the S3 object
+			obj = S3Object.getObject(TMP_URI_FILE_WITH_PATH_AND_UMLAUT, null);
+			// now check the metadata
+			assertTrue("object exists",obj.exists());
 		} catch (Exception e) {
 			fail(StringUtil.exceptionToString(e));
 		}
@@ -248,8 +258,8 @@ public class TestS3Object extends TestS3InitURLs {
 	@Test
 	public void testDeleteObject() {
 		try {
-			S3Response res = S3Object.deleteObject(new S3URL(TMP_URL));
-			res = S3Object.deleteObject(new S3URL(TMP_URL_WITH_UMLAUT));
+			S3Response res = S3Object.deleteObject(TMP_URI_FILE);
+			res = S3Object.deleteObject(TMP_URI_FILE_WITH_PATH_AND_UMLAUT);
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail(StringUtil.exceptionToString(e));

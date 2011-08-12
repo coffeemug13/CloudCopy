@@ -3,8 +3,10 @@
  */
 package org.ccopy.resource.util;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +47,25 @@ public class StringUtil {
 		}
 		in.close();
 		return buf.toString();
+	}
+	/**
+	 * Read a String an return an InputStream to this String.
+	 * @param string
+	 * @param charset
+	 * @return
+	 */
+	static public InputStream stringToStream(String string, String charset) {
+		if (null == string)
+			throw new NullPointerException();
+		try {
+			if (null != charset)
+				return new ByteArrayInputStream(string.getBytes(charset));
+			else
+				return new ByteArrayInputStream(string.getBytes());
+		} catch (UnsupportedEncodingException e) {
+			e.printStackTrace();
+			throw new Error(e);
+		}
 	}
 
 	/**
@@ -117,10 +138,28 @@ public class StringUtil {
 		buf.append(e.getClass().getName() + " - ");
 		if (null!= e.getMessage()) buf.append(e.getMessage());
 		buf.append("\n");
-		for (int i = 0;(i<st.length)&&(i<4);i++){
-//		for (StackTraceElement s : st) {
+		for (int i = 0;(i<st.length)&&(i<6);i++){
 			buf.append(st[i].toString());
 			buf.append("\n");
+		}
+		if (null!= e.getCause()) {
+			buf.append("\nCause: " + e.getClass().getName() + " - ");
+			buf.append( e.getCause().getMessage());
+			st = e.getCause().getStackTrace();
+			for (int i = 0;(i<st.length)&&(i<4);i++){
+				buf.append(st[i].toString());
+				buf.append("\n");
+			}
+		}
+		return buf.toString();
+	}
+	public static String join(List<String> list) {
+		if (null == list) return null;
+		StringBuffer buf = new StringBuffer();
+		boolean firstLine = true;
+		for(String s : list) {
+			if (!firstLine) buf.append(";");
+			buf.append(s);
 		}
 		return buf.toString();
 	}

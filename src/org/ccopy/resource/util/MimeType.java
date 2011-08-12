@@ -35,8 +35,12 @@ public class MimeType {
 
 	/**
 	 * Private Constructor of MimeType
+	 * @param mimeType
+	 * @throws NullPointerException when argument is <code>null</code>
 	 */
 	public MimeType(String mimeType) {
+		if (null == mimeType)
+			throw new NullPointerException();
 		this.mimeType = mimeType;
 	}
 

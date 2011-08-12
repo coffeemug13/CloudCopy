@@ -6,13 +6,13 @@ package org.ccopy.resource.s3;
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.PasswordAuthentication;
-import java.net.Proxy;
 import java.net.URL;
+import java.net.URI;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.Map.Entry;
@@ -34,21 +34,18 @@ import org.ccopy.util.HttpMethod;
  */
 public class S3Request {
 	private static final Logger logger = Logger.getLogger("org.ccopy");
-	protected Proxy proxy = null;
-	protected URL url;
+	private URL url;
+	private URI uri;
 	/**
 	 * the default HTTP Method is GET
 	 */
 	private HttpMethod httpVerb = HttpMethod.GET;
-	protected String contentMD5 = "";
-	protected String contentType = "";
-	protected String canonicalizedAmzHeaders = "";
-	protected String canonicalizedResource;
-	protected TreeMap<String, String> amzHeaders = new TreeMap<String, String>();
-	protected List<String> headers = new ArrayList<String>();
-	protected HttpURLConnection con = null;
-	private int fixedStreamLength;
-	protected int responseCode = -1;
+	private String contentMD5 = "";
+	private String contentType = "";
+	private String canonicalizedResource;
+	private TreeMap<String, String> amzHeaders = new TreeMap<String, String>();
+	private HttpURLConnection con = null;
+	private long fixedStreamLength;
 
 	static protected SimpleDateFormat df = new SimpleDateFormat(
 			"EEE, d MMM yyyy HH:mm:ss Z", Locale.ENGLISH);
@@ -58,14 +55,40 @@ public class S3Request {
 	}
 
 	/**
-	 * Constructor for S3Request you will need always a URL to start with, which
-	 * contains authority (= host + bucketname) + path (=key)
+	 * Constructor for a S3Request.
 	 * 
-	 * @param url2
+	 * @param uri
+	 *            - An absolute, hierarchical URI with a non-empty authority and path component, and
+	 *            optional query. Fragment and user info are removed.
+	 * @throws NullPointerException
+	 *             - If uri is {@link NullPointerException}
+	 * @throws IllegalArgumentException
+	 *             - If the preconditions on the parameter do not hold
 	 */
-	public S3Request(S3URL url) {
+	protected S3Request(URI uri) {
 		logger.fine(null);
-		this.url = url.toURL();
+		// this.url = url.toURL();
+		try {
+			// check if absolute URL with non-empty path
+			// see the junit tests for URI
+			if ((uri.getPath() == null) || uri.getPath().isEmpty())
+				throw new IllegalArgumentException("preconditions on the parameter do not hold");
+			// remove the part user and fragment if in URI
+			if ((uri.getUserInfo() != null) || (uri.getFragment() != null))
+				try {
+					uri = new URI(uri.getScheme(), null, uri.getHost(), uri.getPort(),
+							uri.getPath(), uri.getQuery(), null);
+				} catch (URISyntaxException e) {
+					System.out.println("This should never happen");
+					e.printStackTrace();
+					System.exit(1);
+				}
+			//  URI.normalize() the path and encode non-ASCII characters
+			this.uri = uri.normalize();
+			this.url = new URL(this.uri.toASCIIString().replace("+", "%2B"));
+		} catch (MalformedURLException e) {
+			throw new IllegalArgumentException(uri.toASCIIString() + "is not a valid url", e);
+		}
 	}
 
 	/**
@@ -74,6 +97,8 @@ public class S3Request {
 	 * @param method
 	 */
 	protected void setHttpMethod(HttpMethod method) {
+		if (null == method)
+			throw new NullPointerException();
 		this.httpVerb = method;
 	}
 
@@ -84,6 +109,8 @@ public class S3Request {
 	 *            the contentMD5 to set
 	 */
 	public void setContentMD5(String contentMD5) {
+		if (null == contentMD5)
+			throw new NullPointerException();
 		this.contentMD5 = contentMD5;
 	}
 
@@ -94,37 +121,32 @@ public class S3Request {
 	 *            the contentType to set
 	 */
 	public void setContentType(String contentType) {
+		if (null == contentType)
+			throw new NullPointerException();
 		this.contentType = contentType;
 	}
+
 	/**
-	 * Set request headers manually.
+	 * Set request headers manually. In case a key is already added, this value will be added to the
+	 * existing key.
+	 * 
 	 * @param key
+	 *            - the header key; To add custom metadata use the prefix {@link S3Headers#X_AMZ_META}
+	 *            for the key
 	 * @param value
-	 * @throws NullPointerException when arguments are <code>null</code>
+	 * @throws NullPointerException
+	 *             when arguments are <code>null</code>
 	 */
 	public void addRequestHeader(String key, String value) {
 		// the next two line will throw a NullPointerException when arguments are null
-		// therefore no excplicit check whether argument null
-		key = key.trim();
+		// therefore no explicit check whether argument null
+		// TODO V2 check max count for headers
+		key = key.trim().toLowerCase();
 		value = value.trim();
-		// collect amz headers
-		if (key.toLowerCase().startsWith("x-amz-")) {
-			if (!key.toLowerCase().equals(S3Headers.X_AMZ_META)) {
-			String oldKey = amzHeaders.put(key.toLowerCase(), value);
-			if (oldKey != null)
-				amzHeaders.put(key.toLowerCase(), value + "," + oldKey);
-			} //else System.err.println("skipping to add user metadata to S3 Request Header because missing unique key after 'x-amz-meta-'");
-		} else amzHeaders.put(key, value);
-
+		String oldKey = amzHeaders.put(key, value);
+		if (oldKey != null)
+			amzHeaders.put(key, value + "," + oldKey);
 	}
-//  deleted because not needed yet.
-//	public Map<String, String> getRequestHeaders() {
-//		return Collections.unmodifiableMap(amzHeaders);
-//	}
-//
-//	public Map<String, List<String>> getResponseHeaders() {
-//		return (con != null) ? con.getHeaderFields() : null;
-//	}
 
 	/**
 	 * Get the connection for the specified S3 request
@@ -147,18 +169,19 @@ public class S3Request {
 		// enable output mode for the connection for put
 		if (httpVerb == HttpMethod.PUT) {
 			con.setDoOutput(true);
-			con.setFixedLengthStreamingMode(fixedStreamLength);
+			con.setFixedLengthStreamingMode((int) fixedStreamLength);
 		}
 			
 		// set the correct date for the request and add to request header
 		String date = df.format(new Date());
 		con.addRequestProperty("Date", date);
-		if ("" != contentType) con.setRequestProperty("Content-Type", contentType);
+		if ((null != contentType)&&(!contentType.isEmpty())) 
+			con.setRequestProperty("Content-Type", contentType);
 		// add the manually set header attributes
 		for (Entry<String, String> entry : amzHeaders.entrySet()) {
 			con.setRequestProperty(entry.getKey(), entry.getValue());
 		}
-		
+		con.setRequestProperty("Content-Encoding", "UTF-8");
 		// create the canonicalizedResource
 		canonicalizedResource = getCanonicalizedResource(url);
 		// create the string to sign
@@ -167,7 +190,7 @@ public class S3Request {
 				+ canonicalizedResource;
 		// sign this string and add it as Authorization header
 		PasswordAuthentication pwd = Authenticator
-				.requestPasswordAuthentication(null, 0, "", "", "");
+				.requestPasswordAuthentication("s3.amazonaws.com",null, 0, null, null, null);
 		String sign = sign(new String(pwd.getPassword()), stringToSign);
 		String authorization = "AWS " + pwd.getUserName() + ":" + sign;
 		con.addRequestProperty("Authorization", authorization);
@@ -209,13 +232,6 @@ public class S3Request {
 				+ url.getPath();
 	}
 
-	/**
-	 * @param proxy
-	 *            the proxy to set
-	 */
-	public void setProxy(Proxy proxy) {
-		this.proxy = proxy;
-	}
 
 	/**
 	 * Sign the request.
@@ -284,8 +300,15 @@ public class S3Request {
 		return buf.toString();
 	}
 
-	public void setFixedLengthStreamingMode(int contentLength) {
+	public void setFixedLengthStreamingMode(long contentLength) {
 		this.fixedStreamLength = contentLength;
 		
+	}
+	/**
+	 * Return the URI for this request 
+	 * @return the URI
+	 */
+	public URI toURI() {
+		return this.uri;
 	}
 }

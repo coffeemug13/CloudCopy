@@ -32,21 +32,17 @@ public class TestS3BucketListObjectRequestParser {
 					.getResource("bucketListObjectsResponse.xml").toURI()));
 			parse = new S3BucketListObjectsRequestParser(in);
 			for (S3Object s3 : parse.list) {
-				System.out.println(s3.url.toString());
+				System.out.println(s3.uri.toString());
 				// check that both values are correct set
-				if (s3.url.toString().equals("https://ccopy.s3.amazonaws.com/test.txt")) {
+				if (s3.uri.toString().equals("https://ccopy.s3.amazonaws.com/test.txt")) {
 					assertEquals(1311571146000L, s3.lastModified);
 					assertEquals("d33dfa987962515b9efa63489bdcf8e0", s3.eTag);
 					assertEquals(56, s3.size);
-					assertTrue(s3.isFile());
-					assertFalse(s3.isDirectory());
-				} else if (s3.url.toString().equals(
-						"https://ccopy.s3.amazonaws.com/test/file with+and‹.txt")) {
+				} else if (s3.uri.toString().equals(
+						"https://ccopy.s3.amazonaws.com/test/file%20with+and√ú.txt")) {
 					assertEquals(1310382669000L, s3.lastModified);
 					assertEquals("d33dfa987962515b9efa63489bdcf8e0", s3.eTag);
 					assertEquals(56, s3.size);
-					assertTrue(s3.isFile());
-					assertFalse(s3.isDirectory());
 				} else
 					fail("wrong parsing");
 			}
@@ -54,21 +50,17 @@ public class TestS3BucketListObjectRequestParser {
 					.getResource("bucketListObjectsResponse2.xml").toURI()));
 			parse = new S3BucketListObjectsRequestParser(in);
 			for (S3Object s3 : parse.list) {
-				System.out.println(s3.url.toString());
+				System.out.println(s3.uri.toString());
 					// check that both values are correct set
-					if (s3.url.toString().equals("https://ccopy.s3.amazonaws.com/test.txt")) {
+					if (s3.uri.toString().equals("https://ccopy.s3.amazonaws.com/test.txt")) {
 						assertEquals(1311571146000L, s3.lastModified);
 						assertEquals("d33dfa987962515b9efa63489bdcf8e0", s3.eTag);
 						assertEquals(56, s3.size);
-						assertTrue(s3.isFile());
-						assertFalse(s3.isDirectory());
-					} else if (s3.url.toString().equals(
+					} else if (s3.uri.toString().equals(
 							"https://ccopy.s3.amazonaws.com/test/")) {
 						assertEquals(0L, s3.lastModified);
 						assertEquals(null, s3.eTag);
 						assertEquals(0L, s3.size);
-						assertFalse(s3.isFile());
-						assertTrue(s3.isDirectory());
 					} else
 						fail("wrong parsing");
 			}
