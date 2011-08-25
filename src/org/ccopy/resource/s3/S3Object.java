@@ -29,7 +29,7 @@ public class S3Object {
 	/**
 	 * The size of the byte array, which holds the chunks from the InputStream
 	 */
-	private static final int STREAM_BYTE_BUFFER = 100;
+	private static final int STREAM_BYTE_BUFFER = 65536;
 	private static Logger logger = Logger.getLogger("org.ccopy");
 	public static final String DELIMITER = "/";
 	/**
@@ -85,9 +85,9 @@ public class S3Object {
 //		this.isFile = (uri.getPath().endsWith("/"))?false:true;
 	}
 	protected S3Object(S3Response response) {
-		S3Object obj = new S3Object(response.getUri());
-		obj.eTag = response.getETag();
-		obj.lastModified = response.getLastModified();
+		this(response.getUri());
+		this.eTag = response.getETag();
+		this.lastModified = response.getLastModified();
 		// TODO implement versioning
 	}
 	protected void updateByResponse(S3Response response) {

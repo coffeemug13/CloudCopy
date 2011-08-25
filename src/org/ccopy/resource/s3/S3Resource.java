@@ -62,15 +62,15 @@ public class S3Resource extends Resource {
 	/**
 	 * Constructor of a new {@code S3Resource} as child of another resource.
 	 * 
-	 * @param s3
+	 * @param resource
 	 * @param child
 	 * @throws ResourceException
 	 *         when the service behind the resource can't process the request, e.g. bad request
 	 * @throws MalformedURLException
 	 *         when the resulting URL is invalid
 	 */
-	public S3Resource(S3Resource s3, String child) throws URISyntaxException {
-		super(s3, child);
+	public S3Resource(S3Resource resource, String child) throws URISyntaxException {
+		super(resource, child);
 	}
 
 	/**
@@ -454,25 +454,24 @@ public class S3Resource extends Resource {
 
 	@Override
 	public OutputStream getOutputStream() throws IOException, ResourceException {
-//		if ((null != this.s3Object) && (!isFile(this.s3Object.uri)))
-//			throw new IllegalStateException("Cant getInputStream for directory resource");
-//		// check the resource status
-//		this.uri = encodeAsFile(this.uri);
-//		try {
-//			// if connection not already available fetch the object
-//			if ((null==this.s3Object) || (null == this.s3Object.getOutputStream())) {
-//				this.s3Object = S3Object.getObject(uri, (null!=this.s3Object)?this.s3Object.getVersionId():null);
-//				this.uri = this.s3Object.uri;
-//				this.modifiedHeader = null;
-//			}
-//			return s3Object.getOutputStream();
-//		} catch (S3Exception e) {
-//			if (e.getErrorCode() == HttpURLConnection.HTTP_NOT_FOUND)
-//				throw new FileNotFoundException("file not found" + e.toString());
-//			else
-//				throw new ResourceException("error while getting resource", e);
-//		}
-		return null;
+		if ((null != this.s3Object) && (!isFile(this.s3Object.uri)))
+			throw new IllegalStateException("Cant getInputStream for directory resource");
+		// check the resource status
+		this.uri = encodeAsFile(this.uri);
+		try {
+			// if connection not already available fetch the object
+			if ((null==this.s3Object) || (null == this.s3Object.getOutputStream())) {
+				this.s3Object = S3Object.getObject(uri, (null!=this.s3Object)?this.s3Object.getVersionId():null);
+				this.uri = this.s3Object.uri;
+				this.modifiedHeader = null;
+			}
+			return s3Object.getOutputStream();
+		} catch (S3Exception e) {
+			if (e.getErrorCode() == HttpURLConnection.HTTP_NOT_FOUND)
+				throw new FileNotFoundException("file not found" + e.toString());
+			else
+				throw new ResourceException("error while getting resource", e);
+		}
 	}
 	/**
 	 * Get the status of the S3 resource from S3(exists, isDirectory, isReadable, etc.
@@ -536,7 +535,7 @@ public class S3Resource extends Resource {
 				if (!this.uri.equals(s3Obj.uri))
 					res.add(new S3Resource(s3Obj));
 			} catch (URISyntaxException e) {
-				// TODO Auto-generated catch block
+				// TODO handle error
 				e.printStackTrace();
 				throw new ResourceError(e);
 			}
@@ -547,7 +546,13 @@ public class S3Resource extends Resource {
 
 	@Override
 	public String getName() {
-		return this.uri.getPath();
+		String path = this.uri.getPath();
+		if (path.endsWith("/")) 
+			path.substring(0,path.length()-1);
+		if (path.lastIndexOf("/")>=0)
+			return path.substring(path.lastIndexOf("/")+1);
+		else 
+			return "";
 	}
 
 	
@@ -655,5 +660,20 @@ public class S3Resource extends Resource {
 	 */
 	private static boolean isDirectory(URI uri) {
 		return !S3Resource.isFile(uri);
+	}
+	
+	@Override
+	public boolean supportsMetadata() {
+		return true;
+	}
+
+	@Override
+	public boolean supportsVersioning() {
+		return false;
+	}
+
+	@Override
+	public boolean supportsSetLastModified() {
+		return false;
 	}
 }

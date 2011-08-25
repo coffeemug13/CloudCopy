@@ -3,10 +3,6 @@ package org.ccopy.util;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URLDecoder;
-import java.nio.ByteBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
 import java.util.logging.Logger;
 
 

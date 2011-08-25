@@ -57,19 +57,6 @@ public abstract class Resource {
 	 */
 	public static String SEPERATOR;
 	/**
-	 * Tests whether this Resource supports reading and writing of custom metadata.
-	 */
-	protected static boolean SUPPORTS_METADATA;
-	/**
-	 * Tests whether this Resource supports versioning
-	 */
-	// TODO not yet implemented
-	protected static boolean SUPPORTS_VERSIONING;
-	/**
-	 * Tests whether this Resource supports to set the lastModified timestamp manually.
-	 */
-	protected static boolean SUPPORTS_SET_LASTMODIFIED;
-	/**
 	 * The metadata of this resource
 	 */
 //	protected HashMap<String, String> attributes = null;
@@ -183,11 +170,13 @@ public abstract class Resource {
 	protected Resource(Resource parent, String child) throws URISyntaxException {
 		if ((child == null) || (parent == null))
 			throw new NullPointerException("both arguments must not be null");
-		if (isFile())
+		if (parent.isFile())
 			throw new IllegalArgumentException("parent resource must be an directory");
 		if (logger.isLoggable(Level.FINE))
 			logger.fine("Resource creating for '" + parent.toString() + "' + '" + child + "'");
 		// set URI and reset the properties to their inital value
+		if (!parent.getPath().endsWith("/"))
+			parent.uri = new URI(parent.uri.getScheme(),parent.uri.getHost(),parent.uri.getPath() + "/",null);
 		this.uri = parent.uri.resolve(child);
 		reset();
 	}
@@ -444,15 +433,7 @@ public abstract class Resource {
 	 * @throws NullPointerException
 	 *         when argument is {@code null}
 	 */
-	public abstract String get(String key); // {
-//		if (null != key) {
-//			if (null != attributes)
-//				return attributes.get(key);
-//			else
-//				return null;
-//		} else
-//			throw new NullPointerException("Argument 'key' must not be null");
-//	}
+	public abstract String get(String key);
 
 	/**
 	 * Returns true if this resource contains a mapping for the specified metadata key.
@@ -461,12 +442,7 @@ public abstract class Resource {
 	 *        the key whose presence is to be tested
 	 * @return true if this map contains a mapping for the specified key
 	 */
-	public abstract boolean containsKey(String key); // {
-//		if (null != attributes)
-//			return attributes.containsKey(key);
-//		else
-//			return false;
-//	}
+	public abstract boolean containsKey(String key);
 
 	/**
 	 * Return the {@link URL} representing this Resource.
@@ -576,8 +552,9 @@ public abstract class Resource {
 	 * Returns the MD5 hash of the file if known
 	 * 
 	 * @return
+	 * @throws IOException 
 	 */
-	public abstract String getMD5Hash();
+	public abstract String getMD5Hash() throws IOException;
 
 	/**
 	 * Returns an array of resources which are childs of this resource.
@@ -641,23 +618,17 @@ public abstract class Resource {
 	 * Tests whether this Resource supports versioning
 	 * @return
 	 */
-	public boolean supportsVersioning() {
-		return SUPPORTS_VERSIONING;
-	}
+	public abstract boolean supportsVersioning();
 	/**
 	 * Tests whether this Resource supports reading and writing of custom metadata.
 	 * @return
 	 */
-	public boolean supportsMetadata() {
-		return SUPPORTS_METADATA;
-	}
+	public abstract boolean supportsMetadata();
 	/**
 	 * Tests whether this Resource supports to set the lastModified timestamp manually.
 	 * @return
 	 */
-	public boolean supportsSetLastModified() {
-		return SUPPORTS_SET_LASTMODIFIED;
-	}
+	public abstract boolean supportsSetLastModified();
 	/**
 	 * Tests whether the application can read the resource denoted by this abstract resource
 	 * location.
