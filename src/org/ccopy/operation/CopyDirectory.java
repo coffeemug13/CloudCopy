@@ -8,9 +8,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Date;
 import java.util.LinkedList;
@@ -19,13 +21,14 @@ import java.util.List;
 import javax.imageio.IIOException;
 
 import org.ccopy.resource.Resource;
+import org.ccopy.resource.ResourceException;
 import org.ccopy.resource.file.FileResource;
 
 /**
  * @author coffeemug13
  * 
  */
-public class CopyDirectory {
+public class CopyDirectory implements ResourceOperation{
 	/**
 	 * The size of the byte array, which holds the chunks from the InputStream
 	 */
@@ -33,6 +36,7 @@ public class CopyDirectory {
 	private int countMaxLevel = 0;
 	private int countDir = 0;
 	private int countResource = 0;
+	private int countResourceTransfered = 0;
 	private int countException = 0;
 
 	public CopyDirectory(Resource source, Resource target) throws FileNotFoundException {
@@ -43,17 +47,20 @@ public class CopyDirectory {
 		// throw new FileNotFoundException();
 	}
 
-	public void start() throws Exception {
-		copy(sourceFile, targetResource, 0);
+	public CopyDirectory() {
 	}
 
-	public void copy(Resource sourceDirectory, Resource targetDirectory, int level)
-			throws Exception {
+	public void start(Resource source, Resource target) throws ResourceException, IOException, URISyntaxException   {
+		copy(source, target, 0);
+	}
+
+	public void copy(Resource sourceDirectory, Resource targetDirectory, int level) throws ResourceException, IOException, URISyntaxException
+			 {
 		// if (level > maxLevel)
 		// return; // limit the crawler to a certain depth
 		if (level >= countMaxLevel)
 			countMaxLevel++; // count the deepest directory level
-		System.out.println(sourceDirectory + File.separator);
+		System.out.println(sourceDirectory);
 		// System.out.println(targetDirectory + File.separator);
 		List<Resource> list = sourceDirectory.listResources(); // get the files of the resource directory
 		if (!targetDirectory.isDirectory()) {
@@ -79,7 +86,8 @@ public class CopyDirectory {
 					 */
 					if (!target.isFile()) {
 						countResource++;
-						System.out.print(source + " - copy");
+						countResourceTransfered++;
+						System.out.println(source + " - copy");
 						InputStream in = source.getInputStream();
 						// if target supports metadata, write some
 						if (target.supportsMetadata()) {
@@ -112,7 +120,7 @@ public class CopyDirectory {
 	/**
 	 * @return the countAsset
 	 */
-	public int getCountAsset() {
+	public int getCountObject() {
 		return countResource;
 	}
 
@@ -135,5 +143,10 @@ public class CopyDirectory {
 	 */
 	public int getCountMaxLevel() {
 		return countMaxLevel;
+	}
+
+	@Override
+	public int getCountObjectTransfered() {
+		return countResourceTransfered;
 	}
 }

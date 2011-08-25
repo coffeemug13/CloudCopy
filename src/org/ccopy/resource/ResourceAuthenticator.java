@@ -124,7 +124,7 @@ public class ResourceAuthenticator extends Authenticator {
 			byte[] utf8 = dcipher.doFinal(dec);
 			// Decode using utf-8
 			String[] secret = new String(utf8, "UTF8").split(":");
-			System.out.println(secret[0] + ":" + secret[1]);
+//			System.out.println(secret[0] + ":" + secret[1]);
 			ResourceAuthenticator.username = secret[0];
 			ResourceAuthenticator.passwd = secret[1];
 			logger.fine("successfully loaded credentials from file:" + file);
